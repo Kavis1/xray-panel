@@ -9,10 +9,24 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-echo -e "${BLUE}=========================================${NC}"
-echo -e "${BLUE}  Xray Panel - Установка Ноды${NC}"
-echo -e "${BLUE}=========================================${NC}"
-echo ""
+# Проверка режима работы
+UPDATE_MODE=false
+if [ -d "/opt/xray-panel-node" ] && [ -f "/usr/local/bin/xray-panel-node" ]; then
+    UPDATE_MODE=true
+    echo -e "${YELLOW}=========================================${NC}"
+    echo -e "${YELLOW}  Обнаружена установленная нода${NC}"
+    echo -e "${YELLOW}=========================================${NC}"
+    echo ""
+    echo -e "${BLUE}Режим: ОБНОВЛЕНИЕ${NC}"
+    echo ""
+else
+    echo -e "${BLUE}=========================================${NC}"
+    echo -e "${BLUE}  Xray Panel - Установка Ноды${NC}"
+    echo -e "${BLUE}=========================================${NC}"
+    echo ""
+    echo -e "${BLUE}Режим: НОВАЯ УСТАНОВКА${NC}"
+    echo ""
+fi
 
 # Проверка root
 if [[ $EUID -ne 0 ]]; then
@@ -29,7 +43,73 @@ else
     exit 1
 fi
 
-echo -e "${GREEN}✓${NC} Определена ОС: $OS"
+echo -e "${GREEN}✓${NC} Определена ОС: $OS
+
+# РЕЖИМ ОБНОВЛЕНИЯ
+if [ "$UPDATE_MODE" = true ]; then
+    echo ""
+    echo -e "${YELLOW}=== Обновление Node Service ===${NC}"
+    echo ""
+    
+    INSTALL_DIR="/opt/xray-panel-node"
+    REPO_URL="https://github.com/Kavis1/xray-panel.git"
+    
+    echo -e "${BLUE}[1/3]${NC} Загрузка обновлений..."
+    cd /tmp
+    rm -rf temp_node_update
+    git clone -q "$REPO_URL" temp_node_update || {
+        echo -e "${RED}Ошибка загрузки обновлений${NC}"
+        exit 1
+    }
+    
+    echo -e "${BLUE}[2/3]${NC} Обновление исходников..."
+    # Сохраняем конфиги
+    cp $INSTALL_DIR/.env /tmp/.env.backup 2>/dev/null || true
+    cp $INSTALL_DIR/xray_config.json /tmp/xray_config.backup 2>/dev/null || true
+    cp $INSTALL_DIR/singbox_config.json /tmp/singbox_config.backup 2>/dev/null || true
+    
+    # Обновляем только исходники
+    cd $INSTALL_DIR
+    cp -r /tmp/temp_node_update/node/* .
+    
+    # Восстанавливаем конфиги
+    cp /tmp/.env.backup .env 2>/dev/null || true
+    cp /tmp/xray_config.backup xray_config.json 2>/dev/null || true
+    cp /tmp/singbox_config.backup singbox_config.json 2>/dev/null || true
+    
+    echo -e "${BLUE}[3/3]${NC} Пересборка Node Service..."
+    /usr/local/go/bin/go build -o xray-panel-node-new cmd/main.go || {
+        echo -e "${RED}Ошибка сборки${NC}"
+        exit 1
+    }
+    
+    # Остановить сервис
+    systemctl stop xray-panel-node
+    
+    # Заменить бинарник
+    cp xray-panel-node-new /usr/local/bin/xray-panel-node
+    rm xray-panel-node-new
+    
+    # Запустить сервис
+    systemctl start xray-panel-node
+    
+    # Очистка
+    rm -rf /tmp/temp_node_update /tmp/*.backup
+    
+    echo ""
+    echo -e "${GREEN}=========================================${NC}"
+    echo -e "${GREEN}✓✓✓ Обновление завершено! ✓✓✓${NC}"
+    echo -e "${GREEN}=========================================${NC}"
+    echo ""
+    echo "Статус сервисов:"
+    systemctl status xray-node --no-pager -l | head -3
+    systemctl status singbox-node --no-pager -l | head -3
+    systemctl status xray-panel-node --no-pager -l | head -3
+    echo ""
+    echo -e "${GREEN}Node Service обновлён и перезапущен!${NC}"
+    
+    exit 0
+fi"
 
 # Получение внешнего IP
 EXTERNAL_IP=$(curl -s ifconfig.me || curl -s icanhazip.com || echo "")

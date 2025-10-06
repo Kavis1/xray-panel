@@ -9,10 +9,24 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-echo -e "${BLUE}=========================================${NC}"
-echo -e "${BLUE}  Xray Panel - Установка Панели${NC}"
-echo -e "${BLUE}=========================================${NC}"
-echo ""
+# Проверка режима работы
+UPDATE_MODE=false
+if [ -d "/root/panel" ] && [ -f "/root/panel/backend/panel.db" ]; then
+    UPDATE_MODE=true
+    echo -e "${YELLOW}=========================================${NC}"
+    echo -e "${YELLOW}  Обнаружена установленная панель${NC}"
+    echo -e "${YELLOW}=========================================${NC}"
+    echo ""
+    echo -e "${BLUE}Режим: ОБНОВЛЕНИЕ${NC}"
+    echo ""
+else
+    echo -e "${BLUE}=========================================${NC}"
+    echo -e "${BLUE}  Xray Panel - Установка Панели${NC}"
+    echo -e "${BLUE}=========================================${NC}"
+    echo ""
+    echo -e "${BLUE}Режим: НОВАЯ УСТАНОВКА${NC}"
+    echo ""
+fi
 
 # Проверка root
 if [[ $EUID -ne 0 ]]; then
@@ -30,6 +44,76 @@ else
 fi
 
 echo -e "${GREEN}✓${NC} Определена ОС: $OS"
+
+# РЕЖИМ ОБНОВЛЕНИЯ
+if [ "$UPDATE_MODE" = true ]; then
+    echo ""
+    echo -e "${YELLOW}=== Обновление панели ===${NC}"
+    echo ""
+    
+    INSTALL_DIR="/root/panel"
+    REPO_URL="https://github.com/Kavis1/xray-panel.git"
+    
+    echo -e "${BLUE}[1/4]${NC} Загрузка обновлений..."
+    cd /tmp
+    rm -rf temp_panel_update
+    git clone -q "$REPO_URL" temp_panel_update || {
+        echo -e "${RED}Ошибка загрузки обновлений${NC}"
+        exit 1
+    }
+    
+    echo -e "${BLUE}[2/4]${NC} Создание резервных копий..."
+    cp $INSTALL_DIR/backend/.env /tmp/.env.backup
+    cp $INSTALL_DIR/backend/panel.db /tmp/panel.db.backup
+    
+    echo -e "${BLUE}[3/4]${NC} Обновление файлов..."
+    # Обновляем только backend и workers
+    cd $INSTALL_DIR/backend
+    cp -r /tmp/temp_panel_update/backend/app .
+    cp /tmp/temp_panel_update/backend/requirements.txt .
+    
+    # Устанавливаем новые зависимости если есть
+    source venv/bin/activate
+    pip install -q -r requirements.txt
+    
+    # Применяем миграции
+    alembic upgrade head
+    
+    # Восстанавливаем конфиги
+    cp /tmp/.env.backup .env
+    
+    echo -e "${BLUE}[4/4]${NC} Перезапуск сервисов..."
+    # Перезапускаем сервисы
+    pkill -f uvicorn || true
+    pkill -f celery || true
+    
+    sleep 2
+    
+    # Запускаем заново
+    cd $INSTALL_DIR/backend
+    nohup venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 > /tmp/panel.log 2>&1 &
+    nohup venv/bin/celery -A app.workers.celery_app worker --loglevel=info > /tmp/celery_worker.log 2>&1 &
+    nohup venv/bin/celery -A app.workers.celery_app beat --loglevel=info > /tmp/celery_beat.log 2>&1 &
+    
+    # Очистка
+    rm -rf /tmp/temp_panel_update /tmp/*.backup
+    
+    sleep 3
+    
+    echo ""
+    echo -e "${GREEN}=========================================${NC}"
+    echo -e "${GREEN}✓✓✓ Обновление завершено! ✓✓✓${NC}"
+    echo -e "${GREEN}=========================================${NC}"
+    echo ""
+    echo "Проверка сервисов:"
+    curl -s http://localhost:8000/health && echo " ✓ Panel API работает" || echo " ✗ Panel API не отвечает"
+    ps aux | grep -E "(uvicorn|celery)" | grep -v grep | head -3
+    echo ""
+    echo -e "${GREEN}Панель обновлена и перезапущена!${NC}"
+    echo -e "URL: https://$(cat $INSTALL_DIR/backend/.env | grep DOMAIN | cut -d'=' -f2)"
+    
+    exit 0
+fi
 
 # Запрос данных от пользователя
 echo ""
