@@ -75,7 +75,25 @@ func (m *Manager) Stop() error {
 func (m *Manager) IsRunning() bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return m.running
+	
+	// First check internal flag
+	if m.running {
+		return true
+	}
+	
+	// If not running internally, check if systemd service is running
+	cmd := exec.Command("systemctl", "is-active", "xray-node")
+	if err := cmd.Run(); err == nil {
+		return true
+	}
+	
+	// Also check xray-panel service (for compatibility)
+	cmd = exec.Command("systemctl", "is-active", "xray-panel")
+	if err := cmd.Run(); err == nil {
+		return true
+	}
+	
+	return false
 }
 
 func (m *Manager) GetUptime() int64 {

@@ -39,26 +39,52 @@ async def collect_node_stats_async():
 
         for node in nodes:
             try:
-                # Check if Xray is running directly
-                xray_check = subprocess.run(
-                    ['systemctl', 'is-active', 'xray-panel.service'],
-                    capture_output=True,
-                    text=True,
-                    timeout=2
-                )
-                xray_running = xray_check.returncode == 0
+                # Check if this is local node or remote
+                is_local = node.address in ['127.0.0.1', 'localhost', '::1']
                 
-                # Get Xray version
-                if xray_running:
-                    version_check = subprocess.run(
-                        ['xray', 'version'],
+                if is_local:
+                    # For local node: use systemctl directly
+                    xray_check = subprocess.run(
+                        ['systemctl', 'is-active', 'xray-panel.service'],
                         capture_output=True,
                         text=True,
                         timeout=2
                     )
-                    xray_version = version_check.stdout.split('\n')[0] if version_check.returncode == 0 else "Unknown"
+                    xray_running = xray_check.returncode == 0
+                    
+                    # Get Xray version locally
+                    if xray_running:
+                        version_check = subprocess.run(
+                            ['xray', 'version'],
+                            capture_output=True,
+                            text=True,
+                            timeout=2
+                        )
+                        xray_version = version_check.stdout.split('\n')[0] if version_check.returncode == 0 else "Unknown"
+                    else:
+                        xray_version = None
                 else:
-                    xray_version = None
+                    # For remote node: use gRPC to get status
+                    from app.services.node.grpc_client import NodeGRPCClient
+                    
+                    try:
+                        client = NodeGRPCClient(node)
+                        
+                        # Get node info via gRPC
+                        node_info = await client.get_info()
+                        
+                        xray_running = node_info.get('running', False)
+                        xray_version = node_info.get('xray_version', 'Unknown')
+                        
+                        # Update additional node info
+                        node.core_type = node_info.get('core_type')
+                        node.uptime_seconds = node_info.get('uptime')
+                        
+                    except Exception as grpc_error:
+                        logger.warning(f"Failed to connect to remote node {node.name} via gRPC: {grpc_error}")
+                        xray_running = False
+                        xray_version = None
+                        node.is_connected = False
                 
                 # Update node status
                 node.xray_running = xray_running
