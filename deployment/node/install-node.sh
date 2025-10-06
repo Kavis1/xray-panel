@@ -109,7 +109,7 @@ if [ "$UPDATE_MODE" = true ]; then
     echo -e "${GREEN}Node Service обновлён и перезапущен!${NC}"
     
     exit 0
-fi"
+fi
 
 # Получение внешнего IP
 EXTERNAL_IP=$(curl -s ifconfig.me || curl -s icanhazip.com || echo "")
