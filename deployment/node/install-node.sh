@@ -11,7 +11,7 @@ NC='\033[0m'
 
 # Проверка режима работы
 UPDATE_MODE=false
-if [ -d "/opt/xray-panel-node" ] && [ -f "/usr/local/bin/xray-panel-node" ]; then
+if [ -d "/opt/xray-panel-node" ] && [ -f "/opt/xray-panel-node/xray-panel-node" ]; then
     UPDATE_MODE=true
     echo -e "${YELLOW}=========================================${NC}"
     echo -e "${YELLOW}  Обнаружена установленная нода${NC}"
@@ -168,6 +168,10 @@ echo -e "${GREEN}✓${NC} Xray-core установлен ($(xray version | head 
 # Установка sing-box
 echo -e "${YELLOW}[3/6]${NC} Установка sing-box..."
 SINGBOX_VERSION="1.12.9"
+
+# Остановить если запущен
+systemctl stop singbox-node 2>/dev/null || true
+
 wget -q "https://github.com/SagerNet/sing-box/releases/download/v${SINGBOX_VERSION}/sing-box-${SINGBOX_VERSION}-linux-amd64.tar.gz"
 tar -xzf "sing-box-${SINGBOX_VERSION}-linux-amd64.tar.gz"
 cp "sing-box-${SINGBOX_VERSION}-linux-amd64/sing-box" /usr/bin/
