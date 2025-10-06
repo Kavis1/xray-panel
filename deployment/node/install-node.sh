@@ -43,7 +43,7 @@ else
     exit 1
 fi
 
-echo -e "${GREEN}✓${NC} Определена ОС: $OS
+echo -e "${GREEN}✓${NC} Определена ОС: $OS"
 
 # РЕЖИМ ОБНОВЛЕНИЯ
 if [ "$UPDATE_MODE" = true ]; then
