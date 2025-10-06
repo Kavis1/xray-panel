@@ -1,0 +1,99 @@
+syntax = "proto3";
+
+package node;
+
+option go_package = "xray-panel-node/proto";
+
+// Node Service Definition
+service NodeService {
+  rpc Start(Backend) returns (BaseInfoResponse);
+  rpc Stop(Empty) returns (BaseInfoResponse);
+  rpc GetBaseInfo(Empty) returns (BaseInfoResponse);
+  rpc GetLogs(Empty) returns (stream Log);
+  rpc SyncUser(User) returns (SyncResponse);
+  rpc SyncUsers(Users) returns (SyncResponse);
+  rpc GetStats(StatsRequest) returns (StatsResponse);
+  rpc GetSystemStats(Empty) returns (SystemStatsResponse);
+  rpc GetOnlineUsers(Empty) returns (OnlineUsersResponse);
+}
+
+message Empty {}
+
+message Backend {
+  string type = 1;          // XRAY, SINGBOX, V2RAY
+  string config = 2;        // JSON configuration
+  repeated User users = 3;
+  bool keep_alive = 4;
+}
+
+message User {
+  string email = 1;
+  repeated Proxy proxies = 2;
+  repeated string inbounds = 3;
+}
+
+message Proxy {
+  string vmess_id = 1;
+  string vless_id = 2;
+  string vless_flow = 3;
+  string trojan_pwd = 4;
+  string ss_method = 5;
+  string ss_pass = 6;
+}
+
+message Users {
+  repeated User users = 1;
+}
+
+message BaseInfoResponse {
+  string version = 1;
+  string core_type = 2;
+  bool running = 3;
+  string xray_version = 4;
+  int64 uptime = 5;
+  string session_id = 6;
+}
+
+message Log {
+  int64 timestamp = 1;
+  string level = 2;
+  string message = 3;
+}
+
+message SyncResponse {
+  bool success = 1;
+  string message = 2;
+  int32 synced_count = 3;
+}
+
+message StatsRequest {
+  string type = 1;      // UsersStat, UserStat, Inbounds, etc
+  string name = 2;      // user email or inbound tag
+  bool reset = 3;
+}
+
+message StatsResponse {
+  string name = 1;
+  int64 bytes_up = 2;
+  int64 bytes_down = 3;
+}
+
+message SystemStatsResponse {
+  int32 cpu_cores = 1;
+  double cpu_usage = 2;
+  int64 mem_total = 3;
+  int64 mem_used = 4;
+  double mem_usage = 5;
+  int64 net_rx = 6;
+  int64 net_tx = 7;
+}
+
+message OnlineUsersResponse {
+  repeated OnlineUser users = 1;
+}
+
+message OnlineUser {
+  string email = 1;
+  repeated string ips = 2;
+  int64 online_since = 3;
+}

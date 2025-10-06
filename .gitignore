@@ -1,0 +1,113 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+panel.db
+
+# Environment files
+.env
+*.env
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+
+# Logs
+*.log
+logs/
+celerybeat-schedule
+celerybeat-schedule.db
+celerybeat.pid
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.directory
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+package-lock.json
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.dylib
+vendor/
+node/node
+node/xray-panel-node
+github.com/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+nohup.out
+
+# Xray/sing-box runtime configs
+xray_config.json
+singbox_config.json
+
+# Test coverage
+.coverage
+htmlcov/
+*.cover
+
+# Alembic
+*.pyc
+alembic/versions/*.pyc
+
+# Frontend build
+frontend/dist/
+frontend/build/
+frontend/.next/
+
+# Documentation build
+docs/_build/
+site/
+
+# Certificates
+*.pem
+*.key
+*.crt
+!*.example.pem
+
+# Backups
+*.backup
+backup-*/
+
+# Runtime
+*.pid
