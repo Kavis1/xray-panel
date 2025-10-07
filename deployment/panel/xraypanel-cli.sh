@@ -26,7 +26,9 @@ get_current_version() {
 
 # Получить последнюю версию с GitHub
 get_latest_version() {
-    curl -s "https://api.github.com/repos/Kavis1/xray-panel/commits/main" | grep '"sha"' | head -1 | cut -d'"' -f4 | cut -c1-7
+    curl -s "https://api.github.com/repos/Kavis1/xray-panel/contents/deployment/panel/install.sh" | \
+        python3 -c "import sys, json, base64; print(base64.b64decode(json.load(sys.stdin)['content']).decode())" | \
+        grep '^SCRIPT_VERSION=' | head -1 | cut -d'"' -f2 2>/dev/null || echo "unknown"
 }
 
 # Проверить целостность
