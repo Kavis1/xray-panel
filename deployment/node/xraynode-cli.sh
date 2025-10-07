@@ -169,11 +169,17 @@ check_updates() {
     echo ""
     
     local current=$(get_current_version)
-    echo "Текущая версия: $current"
+    echo -e "Текущая версия: ${GREEN}$current${NC}"
     
     echo "Проверка последней версии..."
     local latest=$(get_latest_version)
-    echo "Последняя версия: $latest"
+    
+    if [ -z "$latest" ]; then
+        echo -e "${RED}Не удалось получить информацию о последней версии${NC}"
+        return 1
+    fi
+    
+    echo -e "Последняя версия: ${GREEN}$latest${NC}"
     echo ""
     
     if [ "$current" = "$latest" ]; then
@@ -181,7 +187,36 @@ check_updates() {
         return
     fi
     
-    echo -e "${YELLOW}Доступна новая версия!${NC}"
+    echo -e "${YELLOW}╔════════════════════════════════════════╗${NC}"
+    echo -e "${YELLOW}║     ДОСТУПНО ОБНОВЛЕНИЕ!              ║${NC}"
+    echo -e "${YELLOW}╚════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "Текущая:  ${RED}$current${NC}"
+    echo -e "Новая:    ${GREEN}$latest${NC}"
+    echo ""
+    
+    # Показать что нового
+    echo -e "${CYAN}Что нового:${NC}"
+    if [[ "$latest" == "v2.0.0" ]]; then
+        echo -e "  ${GREEN}✨${NC} SSL-based автоматическое управление портами"
+        echo -e "  ${GREEN}✨${NC} Создание inbound → порт открывается автоматически"
+        echo -e "  ${GREEN}✨${NC} Удаление inbound → порт закрывается автоматически"
+        echo -e "  ${GREEN}🔒${NC} Mutual TLS (mTLS) authentication"
+        echo -e "  ${GREEN}🔒${NC} Никакого ручного SSH - всё через SSL"
+        echo ""
+        echo -e "${YELLOW}⚠️  ВАЖНО: v2.0.0 требует переустановки с SSL сертификатом${NC}"
+        echo ""
+        echo -e "Для обновления:"
+        echo -e "1. ${RED}Удалите${NC} текущую ноду из панели"
+        echo -e "2. ${BLUE}Переустановите${NC} с новым SSL flow:"
+        echo -e "   ${BLUE}curl -sL https://raw.githubusercontent.com/Kavis1/xray-panel/main/deployment/node/install-node.sh | bash${NC}"
+        echo -e "3. ${GREEN}Следуйте${NC} инструкциям SSL в процессе установки"
+        echo ""
+        echo -e "Changelog: ${BLUE}https://github.com/Kavis1/xray-panel/blob/main/deployment/node/CHANGELOG.md${NC}"
+        return
+    fi
+    
+    echo -e "  Обновление доступно. Changelog: ${BLUE}https://github.com/Kavis1/xray-panel/blob/main/deployment/node/CHANGELOG.md${NC}"
     echo ""
     read -p "Обновить до версии $latest? (yes/no): " confirm
     
