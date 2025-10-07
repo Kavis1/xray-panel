@@ -94,8 +94,8 @@ if [ "$UPDATE_MODE" = true ]; then
     # Остановить сервис
     systemctl stop xray-panel-node
     
-    # Заменить бинарник
-    cp xray-panel-node-new /usr/local/bin/xray-panel-node
+    # Заменить бинарник в ПРАВИЛЬНОМ месте
+    cp xray-panel-node-new xray-panel-node
     rm xray-panel-node-new
     
     # Запустить сервис
