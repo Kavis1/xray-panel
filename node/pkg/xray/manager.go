@@ -81,28 +81,26 @@ func (m *Manager) IsRunning() bool {
 		return true
 	}
 	
-	// Check if Xray process is actually running
-	// Try with full path first
-	cmd := exec.Command("/usr/bin/pidof", "xray")
-	if err := cmd.Run(); err == nil {
-		// Xray process found
-		return true
-	}
-	
-	// Try with pgrep as alternative
-	cmd = exec.Command("/usr/bin/pgrep", "xray")
+	// Primary check: systemd service status (most reliable for systemd-managed services)
+	cmd := exec.Command("/usr/bin/systemctl", "is-active", "--quiet", "xray-node")
 	if err := cmd.Run(); err == nil {
 		return true
 	}
 	
-	// If not found by pidof/pgrep, check systemd services
-	cmd = exec.Command("/usr/bin/systemctl", "is-active", "xray-node")
+	// Fallback: check xray-panel service (for compatibility)
+	cmd = exec.Command("/usr/bin/systemctl", "is-active", "--quiet", "xray-panel")
 	if err := cmd.Run(); err == nil {
 		return true
 	}
 	
-	// Also check xray-panel service (for compatibility)
-	cmd = exec.Command("/usr/bin/systemctl", "is-active", "xray-panel")
+	// Alternative: check if Xray process exists
+	cmd = exec.Command("/usr/bin/pidof", "xray")
+	if err := cmd.Run(); err == nil {
+		return true
+	}
+	
+	// Last resort: pgrep
+	cmd = exec.Command("/usr/bin/pgrep", "-x", "xray")
 	if err := cmd.Run(); err == nil {
 		return true
 	}

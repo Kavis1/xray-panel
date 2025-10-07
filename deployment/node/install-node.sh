@@ -3,9 +3,9 @@
 set -e
 
 # VERSION INFO - Updated automatically
-SCRIPT_VERSION="7a3d912"
-SCRIPT_DATE="2025-10-07 19:00 UTC"
-LAST_CHANGE="Fix: Use full path /usr/bin/pidof + pgrep fallback"
+SCRIPT_VERSION="f8c4d21"
+SCRIPT_DATE="2025-10-07 19:05 UTC"
+LAST_CHANGE="Fix: Prioritize systemctl check + --quiet flag"
 
 # Цвета
 RED='\033[0;31m'
