@@ -3,9 +3,9 @@
 set -e
 
 # VERSION INFO - Updated automatically
-SCRIPT_VERSION="v2.0.4"
-SCRIPT_DATE="2025-10-08 01:49 UTC"
-LAST_CHANGE="Fixed Stop() killing node service + Start() uses systemd"
+SCRIPT_VERSION="v2.0.5"
+SCRIPT_DATE="2025-10-08 01:53 UTC"
+LAST_CHANGE="Start() now uses restart instead of start to apply config"
 
 # Цвета
 RED='\033[0;31m'

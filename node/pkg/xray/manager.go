@@ -33,10 +33,6 @@ func (m *Manager) Start(backend types.Backend) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if m.running {
-		return fmt.Errorf("xray is already running")
-	}
-
 	log.Printf("[Start] Writing config to /opt/xray-panel-node/xray_config.json")
 	
 	// Write config to permanent location
@@ -45,11 +41,11 @@ func (m *Manager) Start(backend types.Backend) error {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
 
-	// Start via systemd
-	log.Printf("[Start] Starting xray-node via systemd")
-	cmd := exec.Command("/usr/bin/systemctl", "start", "xray-node")
+	// Always restart to apply new config
+	log.Printf("[Start] Restarting xray-node via systemd to apply config")
+	cmd := exec.Command("/usr/bin/systemctl", "restart", "xray-node")
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to start xray via systemd: %w", err)
+		return fmt.Errorf("failed to restart xray via systemd: %w", err)
 	}
 
 	m.running = true
@@ -57,7 +53,7 @@ func (m *Manager) Start(backend types.Backend) error {
 	m.config = backend.Config
 	m.users = backend.Users
 
-	log.Printf("[Start] Xray started successfully")
+	log.Printf("[Start] Xray restarted successfully with new config")
 	return nil
 }
 
