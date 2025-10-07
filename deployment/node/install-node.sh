@@ -3,9 +3,9 @@
 set -e
 
 # VERSION INFO - Updated automatically
-SCRIPT_VERSION="v1.0.0"
-SCRIPT_DATE="2025-10-07 19:50 UTC"
-LAST_CHANGE="User-friendly errors + auto iptables"
+SCRIPT_VERSION="v1.1.0"
+SCRIPT_DATE="2025-10-07 20:00 UTC"
+LAST_CHANGE="Added xraynode CLI management tool"
 
 # Цвета
 RED='\033[0;31m'
