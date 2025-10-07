@@ -3,9 +3,9 @@
 set -e
 
 # VERSION INFO - Updated automatically
-SCRIPT_VERSION="arm64-fix"
-SCRIPT_DATE="2025-10-07 19:40 UTC"
-LAST_CHANGE="Add ARM64 architecture support"
+SCRIPT_VERSION="v1.0.0"
+SCRIPT_DATE="2025-10-07 19:50 UTC"
+LAST_CHANGE="User-friendly errors + auto iptables"
 
 # Цвета
 RED='\033[0;31m'
@@ -459,18 +459,38 @@ SINGJSON
 
 # Настройка firewall (открытие портов)
 echo "Настройка firewall..."
+
+# 1. iptables (работает ВСЕГДА, особенно важно для Oracle Cloud)
+echo "Открытие портов в iptables..."
+iptables -C INPUT -p tcp --dport $GRPC_PORT -j ACCEPT 2>/dev/null || iptables -I INPUT -p tcp --dport $GRPC_PORT -j ACCEPT
+iptables -C INPUT -p tcp --dport 443 -j ACCEPT 2>/dev/null || iptables -I INPUT -p tcp --dport 443 -j ACCEPT
+iptables -C INPUT -p tcp --dport 80 -j ACCEPT 2>/dev/null || iptables -I INPUT -p tcp --dport 80 -j ACCEPT
+
+# Сохранить правила iptables
+if command -v netfilter-persistent &> /dev/null; then
+    netfilter-persistent save > /dev/null 2>&1
+elif [ -d /etc/iptables ]; then
+    iptables-save > /etc/iptables/rules.v4 2>/dev/null || true
+elif [ -f /etc/sysconfig/iptables ]; then
+    iptables-save > /etc/sysconfig/iptables 2>/dev/null || true
+fi
+
+# 2. UFW (если используется)
 if command -v ufw &> /dev/null; then
-    # Ubuntu/Debian UFW
     ufw allow $GRPC_PORT/tcp comment "Xray Panel Node gRPC" > /dev/null 2>&1 || true
     ufw allow 443/tcp comment "HTTPS" > /dev/null 2>&1 || true
     ufw allow 80/tcp comment "HTTP" > /dev/null 2>&1 || true
-elif command -v firewall-cmd &> /dev/null; then
-    # CentOS/RHEL firewalld
+fi
+
+# 3. firewalld (если используется)
+if command -v firewall-cmd &> /dev/null; then
     firewall-cmd --permanent --add-port=$GRPC_PORT/tcp > /dev/null 2>&1 || true
     firewall-cmd --permanent --add-port=443/tcp > /dev/null 2>&1 || true
     firewall-cmd --permanent --add-port=80/tcp > /dev/null 2>&1 || true
     firewall-cmd --reload > /dev/null 2>&1 || true
 fi
+
+echo -e "${GREEN}✓${NC} Порты открыты: $GRPC_PORT, 443, 80"
 
 # Reload systemd
 systemctl daemon-reload

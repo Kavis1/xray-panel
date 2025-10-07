@@ -95,8 +95,23 @@ class NodeGRPCClient:
                     "uptime": response.uptime,
                     "session_id": response.session_id
                 }
+        except grpc.aio.AioRpcError as e:
+            logger.error(f"[gRPC Client] gRPC error connecting to {self.address}: {e.code()}")
+            
+            # Понятные сообщения для пользователя
+            if e.code() == grpc.StatusCode.UNAVAILABLE:
+                if "No route to host" in str(e.details()):
+                    raise Exception(f"Не удается подключиться к ноде {self.address}. Проверьте: 1) Файрвол на ноде (порт 50051 должен быть открыт), 2) Node Service запущен (systemctl status xray-panel-node)")
+                else:
+                    raise Exception(f"Нода {self.address} недоступна. Node Service не запущен или неверный порт.")
+            elif e.code() == grpc.StatusCode.UNAUTHENTICATED:
+                raise Exception(f"Ошибка аутентификации с нодой {self.address}. Проверьте API_KEY в .env файле ноды.")
+            elif e.code() == grpc.StatusCode.DEADLINE_EXCEEDED:
+                raise Exception(f"Превышено время ожидания ответа от ноды {self.address}. Нода перегружена или медленная сеть.")
+            else:
+                raise Exception(f"Ошибка подключения к ноде {self.address}: {e.code().name}")
         except Exception as e:
-            logger.error(f"[gRPC Client] Failed to connect to {self.address}: {e}")
+            logger.error(f"[gRPC Client] Unexpected error: {e}")
             raise
     
     async def sync_user(self, user: User) -> Dict[str, Any]:
