@@ -105,9 +105,9 @@ if [ "$UPDATE_MODE" = true ]; then
     rm -rf /tmp/temp_node_update /tmp/*.backup
     
     echo ""
-    echo -e "${GREEN}=========================================${NC}"
+    echo -e "${GREEN}════════════════════════════════════════${NC}"
     echo -e "${GREEN}✓✓✓ Обновление завершено! ✓✓✓${NC}"
-    echo -e "${GREEN}=========================================${NC}"
+    echo -e "${GREEN}════════════════════════════════════════${NC}"
     echo ""
     echo "Статус сервисов:"
     systemctl status xray-node --no-pager -l | head -3
@@ -569,8 +569,19 @@ chmod +x /usr/local/bin/xraynode 2>/dev/null || true
 echo "$SCRIPT_VERSION" > /opt/xray-panel-node/.version
 
 echo ""
-echo -e "${GREEN}CLI установлен!${NC} Используйте команду: ${BLUE}xraynode${NC}"
+echo -e "${GREEN}════════════════════════════════════════${NC}"
+echo -e "${GREEN}✓ CLI утилита установлена!${NC}"
+echo -e "${GREEN}════════════════════════════════════════${NC}"
 echo ""
+echo -e "Управление нодой: ${BLUE}xraynode${NC}"
+echo ""
+echo -e "${YELLOW}Доступные команды в меню:${NC}"
+echo -e "  1. Проверить целостность"
+echo -e "  2. Переустановить ноду"
+echo -e "  3. Проверить обновления"
+echo -e "  4. Удалить ноду"
+echo ""
+
 echo -e "${YELLOW}Логи:${NC}"
 echo -e "  journalctl -u xray-node -f              ${BLUE}# Логи Xray${NC}"
 echo -e "  journalctl -u singbox-node -f           ${BLUE}# Логи sing-box${NC}"
