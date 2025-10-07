@@ -44,6 +44,34 @@ async def open_inbound_ports_on_nodes(db: AsyncSession, port: int) -> None:
             logger.error(f"Error opening port {port} on node {node.name}: {e}")
 
 
+async def close_inbound_ports_on_nodes(db: AsyncSession, port: int) -> None:
+    """Close inbound port on all nodes when deleting inbound"""
+    # Close port locally (on panel server)
+    local_result = FirewallManager.close_local_port(port, "tcp")
+    if local_result["success"]:
+        logger.info(f"Closed port {port} locally: {local_result.get('message')}")
+    else:
+        logger.warning(f"Failed to close port {port} locally: {local_result.get('error')}")
+    
+    # Close port on all enabled remote nodes
+    result = await db.execute(select(Node).where(Node.is_enabled == True))
+    nodes = result.scalars().all()
+    
+    for node in nodes:
+        # Skip local node (already handled above)
+        if node.address in ['127.0.0.1', 'localhost', '::1']:
+            continue
+        
+        try:
+            node_result = await FirewallManager.close_port_on_node(node, port, "tcp")
+            if node_result["success"]:
+                logger.info(f"Closed port {port} on node {node.name}")
+            else:
+                logger.warning(f"Failed to close port {port} on node {node.name}: {node_result.get('error')}")
+        except Exception as e:
+            logger.error(f"Error closing port {port} on node {node.name}: {e}")
+
+
 @router.get("/", response_model=List[InboundResponse])
 async def list_inbounds(
     db: AsyncSession = Depends(get_db),
@@ -170,9 +198,16 @@ async def delete_inbound(
         )
     
     inbound_tag = inbound.tag
+    deleted_port = inbound.port
+    
     await db.delete(inbound)
     await db.commit()
     
+    # Auto-close port on all nodes in background
+    background_tasks.add_task(close_inbound_ports_on_nodes, db, deleted_port)
+    
     # Auto-sync to all nodes in background
     background_tasks.add_task(sync_all_nodes_background)
-    logger.info(f"Inbound {inbound_tag} deleted, queued sync to all nodes")
+    logger.info(f"Inbound {inbound_tag} deleted, queued port closing and sync to all nodes")
+    
+    return None

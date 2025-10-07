@@ -259,3 +259,29 @@ class NodeGRPCClient:
                 }
             
             return online_users
+
+    
+    async def close_firewall_port(self, port: int, protocol: str = "tcp") -> Dict[str, Any]:
+        """Close firewall port on node"""
+        async with grpc.aio.insecure_channel(self.address) as channel:
+            stub = node_pb2_grpc.NodeServiceStub(channel)
+            
+            try:
+                commands = [
+                    f"ufw delete allow {port}/{protocol} 2>/dev/null || true",
+                    f"iptables -D INPUT -p {protocol} --dport {port} -j ACCEPT 2>/dev/null || true"
+                ]
+                
+                for cmd in commands:
+                    request = node_pb2.CommandRequest(command=cmd)
+                    try:
+                        response = await stub.ExecuteCommand(request)
+                        if response.exit_code == 0:
+                            return {"success": True, "message": f"Port {port}/{protocol} closed", "method": "command"}
+                    except:
+                        continue
+                
+                return {"success": True, "message": f"Port {port} close attempted"}
+            except Exception as e:
+                return {"success": False, "message": str(e)}
+

@@ -143,3 +143,26 @@ class FirewallManager:
                 "success": False,
                 "error": str(e)
             }
+
+
+    @staticmethod
+    def close_local_port(port: int, protocol: str = "tcp") -> Dict[str, Any]:
+        """Close a port on the local server"""
+        import subprocess
+        
+        try:
+            ufw_check = subprocess.run(["which", "ufw"], capture_output=True, timeout=2)
+            
+            if ufw_check.returncode == 0:
+                subprocess.run(["ufw", "delete", "allow", f"{port}/{protocol}"], capture_output=True, text=True, timeout=5)
+                logger.info(f"Closed port {port}/{protocol} locally via UFW")
+                return {"success": True, "method": "ufw", "message": f"Port {port}/{protocol} closed via UFW"}
+            
+            subprocess.run(["iptables", "-D", "INPUT", "-p", protocol, "--dport", str(port), "-j", "ACCEPT"], capture_output=True, text=True, timeout=5)
+            subprocess.run(["iptables-save"], timeout=5)
+            logger.info(f"Closed port {port}/{protocol} locally via iptables")
+            return {"success": True, "method": "iptables", "message": f"Port {port}/{protocol} closed via iptables"}
+        except Exception as e:
+            logger.error(f"Failed to close local port {port}: {e}")
+            return {"success": False, "error": str(e)}
+

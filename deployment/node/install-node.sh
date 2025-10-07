@@ -199,6 +199,45 @@ echo ""
 echo -e "${GREEN}✓${NC} Параметры настроены"
 echo ""
 
+# SSL Certificate Setup
+echo -e "${BLUE}=========================================${NC}"
+echo -e "${YELLOW}SSL AUTHENTICATION SETUP${NC}"
+echo -e "${BLUE}=========================================${NC}"
+echo ""
+echo -e "${YELLOW}Для безопасного подключения к панели требуется SSL сертификат.${NC}"
+echo ""
+echo -e "${CYAN}ВАЖНО: Выполните следующие шаги:${NC}"
+echo ""
+echo -e "1. Откройте панель управления в браузере"
+echo -e "2. Перейдите в раздел ${GREEN}Nodes → Add Node${NC}"
+echo -e "3. Заполните данные ноды:"
+echo -e "   ${CYAN}Name:${NC}     $NODE_NAME"
+echo -e "   ${CYAN}Address:${NC}  $EXTERNAL_IP"
+echo -e "   ${CYAN}API Port:${NC} $GRPC_PORT"
+echo -e "   ${CYAN}Protocol:${NC} grpc"
+echo -e "   ${CYAN}API Key:${NC}  $API_KEY"
+echo -e "4. Нажмите ${GREEN}[Generate API Key]${NC} (автоматически)"
+echo -e "5. Нажмите ${GREEN}[Create Node]${NC}"
+echo -e "6. ${YELLOW}Скопируйте SSL клиентский сертификат${NC} (все 3 блока)"
+echo ""
+echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo -e "${YELLOW}Вставьте SSL сертификат ниже и нажмите Ctrl+D когда закончите:${NC}"
+echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+echo ""
+
+# Read multiline SSL certificate input
+SSL_CERT=$(cat)
+
+if [ -z "$SSL_CERT" ]; then
+    echo -e "${RED}Ошибка: SSL сертификат не введен!${NC}"
+    echo -e "${YELLOW}Установка прервана. Запустите скрипт заново.${NC}"
+    exit 1
+fi
+
+echo ""
+echo -e "${GREEN}✓${NC} SSL сертификат получен"
+echo ""
+
 # Установка зависимостей
 echo -e "${YELLOW}[1/6]${NC} Установка системных зависимостей..."
 
@@ -317,7 +356,37 @@ echo -e "${GREEN}✓${NC} Go установлен ($(/usr/local/go/bin/go versio
 INSTALL_DIR="/opt/xray-panel-node"
 echo -e "${YELLOW}[5/6]${NC} Установка Node Service..."
 mkdir -p $INSTALL_DIR
+mkdir -p $INSTALL_DIR/ssl
 cd $INSTALL_DIR
+
+# Сохранение SSL сертификата
+echo "$SSL_CERT" > $INSTALL_DIR/ssl/fullchain.pem
+
+# Извлечение компонентов (certificate, private key, CA)
+# Разделяем на 3 файла
+csplit -s -f $INSTALL_DIR/ssl/part- $INSTALL_DIR/ssl/fullchain.pem '/-----BEGIN/' '{*}' 2>/dev/null || true
+
+# Определяем какой файл что содержит
+if [ -f "$INSTALL_DIR/ssl/part-00" ]; then
+    # Первый блок пустой, начинаем с part-01
+    CERT_FILE="$INSTALL_DIR/ssl/part-01"
+    KEY_FILE="$INSTALL_DIR/ssl/part-02"
+    CA_FILE="$INSTALL_DIR/ssl/part-03"
+else
+    CERT_FILE="$INSTALL_DIR/ssl/part-00"
+    KEY_FILE="$INSTALL_DIR/ssl/part-01"
+    CA_FILE="$INSTALL_DIR/ssl/part-02"
+fi
+
+# Копируем в правильные файлы
+[ -f "$CERT_FILE" ] && mv "$CERT_FILE" $INSTALL_DIR/ssl/cert.pem
+[ -f "$KEY_FILE" ] && mv "$KEY_FILE" $INSTALL_DIR/ssl/key.pem
+[ -f "$CA_FILE" ] && mv "$CA_FILE" $INSTALL_DIR/ssl/ca.pem
+
+# Удаляем временные файлы
+rm -f $INSTALL_DIR/ssl/part-* $INSTALL_DIR/ssl/fullchain.pem
+
+echo -e "${GREEN}✓${NC} SSL сертификат сохранен в $INSTALL_DIR/ssl/"
 
 # Загрузка файлов ноды из GitHub
 # TODO: Заменить на ваш GitHub репозиторий
@@ -344,6 +413,11 @@ NODE_NAME=$NODE_NAME
 NODE_ADDRESS=$EXTERNAL_IP
 GRPC_PORT=$GRPC_PORT
 API_KEY=$API_KEY
+
+# SSL Configuration
+SSL_CERT_FILE=$INSTALL_DIR/ssl/cert.pem
+SSL_KEY_FILE=$INSTALL_DIR/ssl/key.pem
+SSL_CA_FILE=$INSTALL_DIR/ssl/ca.pem
 
 # Xray Configuration
 XRAY_API_HOST=127.0.0.1

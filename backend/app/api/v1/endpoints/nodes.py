@@ -12,11 +12,13 @@ from app.schemas.node import NodeCreate, NodeUpdate, NodeResponse
 from app.api.deps import get_current_admin
 from app.services.node.grpc_client import NodeGRPCClient
 from app.services.xray.config_builder import XrayConfigBuilder
+from app.services.ssl.certificate_manager import CertificateManager
 import logging
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+cert_manager = CertificateManager()
 
 
 @router.get("/", response_model=List[NodeResponse])
@@ -70,7 +72,43 @@ async def create_node(
     await db.commit()
     await db.refresh(new_node)
     
-    return new_node
+    # Generate SSL client certificate for the node
+    try:
+        import ipaddress
+        # Validate if address is IP
+        try:
+            ipaddress.ip_address(node_data.address)
+            node_ip = node_data.address
+        except ValueError:
+            # It's a domain, use as-is
+            node_ip = node_data.address
+        
+        certs = cert_manager.generate_node_certificate(
+            node_id=new_node.id,
+            node_name=node_data.name,
+            node_address=node_ip
+        )
+        
+        # Store certificate paths in node (for panel to use)
+        new_node.ssl_cert = certs["cert_file"]
+        new_node.ssl_key = certs["key_file"]
+        new_node.ssl_ca = str(cert_manager.CA_CERT_FILE)
+        await db.commit()
+        
+        # Add certificate info to response
+        response = NodeResponse.model_validate(new_node)
+        response.ssl_client_certificate = certs["certificate"]
+        response.ssl_client_key = certs["private_key"]
+        response.ssl_ca_certificate = certs["ca_certificate"]
+        
+        logger.info(f"Generated SSL certificate for node {new_node.id} ({new_node.name})")
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Failed to generate SSL certificate for node {new_node.id}: {e}")
+        # Still return node, but without certificates
+        return new_node
 
 
 @router.get("/{node_id}", response_model=NodeResponse)

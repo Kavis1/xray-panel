@@ -61,3 +61,8 @@ class NodeResponse(BaseModel):
     uptime_seconds: Optional[int] = None
     created_at: datetime
     updated_at: datetime
+    
+    # SSL certificates (only returned when creating new node)
+    ssl_client_certificate: Optional[str] = None
+    ssl_client_key: Optional[str] = None
+    ssl_ca_certificate: Optional[str] = None
