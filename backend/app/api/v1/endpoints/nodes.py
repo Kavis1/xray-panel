@@ -103,6 +103,7 @@ async def create_node(
     new_node = Node(
         name=node_data.name,
         address=node_data.address,
+        domain=node_data.domain,
         api_port=node_data.api_port,
         api_protocol=node_data.api_protocol,
         api_key=node_data.api_key,

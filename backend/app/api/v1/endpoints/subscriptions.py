@@ -6,6 +6,7 @@ from app.db.base import get_db
 from app.models.user import User, UserInbound
 from app.models.inbound import Inbound
 from app.models.settings import Settings
+from app.models.node import Node
 from app.core.config import settings
 import base64
 import json
@@ -15,51 +16,56 @@ from typing import List, Dict, Any
 router = APIRouter()
 
 
-def generate_subscription_links(user: User, inbounds: List[Inbound], username_tag: str = "") -> List[str]:
-    """Generate subscription links for user's proxies and inbounds"""
+def generate_subscription_links(user: User, inbounds: List[Inbound], nodes: List[Node], username_tag: str = "") -> List[str]:
+    """Generate subscription links for user's proxies and inbounds and nodes"""
     links = []
-    
-    # Get server address from settings
-    server = settings.XRAY_SUBSCRIPTION_URL_PREFIX.split("//")[1].split("/")[0]
     
     for proxy in user.proxies:
         for inbound in inbounds:
-            # Match proxy type with inbound type
-            proxy_type_map = {
-                "VLESS": "vless",
-                "VMESS": "vmess",
-                "TROJAN": "trojan",
-                "SHADOWSOCKS": "shadowsocks",
-                "HYSTERIA": "hysteria",
-                "HYSTERIA2": "hysteria2"
-            }
-            
-            if proxy.type.upper() not in proxy_type_map:
-                continue
+            for node in nodes:
+                # Skip if node is excluded from this inbound
+                if inbound.excluded_nodes and str(node.id) in inbound.excluded_nodes:
+                    continue
                 
-            # Compare types case-insensitively
-            if proxy_type_map[proxy.type.upper()] != inbound.type.lower():
-                continue
-            
-            # Generate link based on type (case-insensitive)
-            proxy_type_upper = proxy.type.upper()
-            if proxy_type_upper == "VLESS" and proxy.vless_uuid:
-                link = generate_vless_link(proxy, inbound, server, username_tag)
-            elif proxy_type_upper == "VMESS" and proxy.vmess_uuid:
-                link = generate_vmess_link(proxy, inbound, server, username_tag)
-            elif proxy_type_upper == "TROJAN" and proxy.trojan_password:
-                link = generate_trojan_link(proxy, inbound, server, username_tag)
-            elif proxy_type_upper == "SHADOWSOCKS" and proxy.ss_password:
-                link = generate_ss_link(proxy, inbound, server, username_tag)
-            elif proxy_type_upper == "HYSTERIA" and proxy.vmess_uuid:
-                link = generate_hysteria_link(proxy, inbound, server, username_tag)
-            elif proxy_type_upper == "HYSTERIA2" and proxy.vmess_uuid:
-                link = generate_hysteria2_link(proxy, inbound, server, username_tag)
-            else:
-                continue
+                # Use node's domain if set, otherwise use address
+                server = node.domain if node.domain else node.address
                 
-            if link:
-                links.append(link)
+                # Match proxy type with inbound type
+                proxy_type_map = {
+                    "VLESS": "vless",
+                    "VMESS": "vmess",
+                    "TROJAN": "trojan",
+                    "SHADOWSOCKS": "shadowsocks",
+                    "HYSTERIA": "hysteria",
+                    "HYSTERIA2": "hysteria2"
+                }
+                
+                if proxy.type.upper() not in proxy_type_map:
+                    continue
+                    
+                # Compare types case-insensitively
+                if proxy_type_map[proxy.type.upper()] != inbound.type.lower():
+                    continue
+                
+                # Generate link based on type (case-insensitive)
+                proxy_type_upper = proxy.type.upper()
+                if proxy_type_upper == "VLESS" and proxy.vless_uuid:
+                    link = generate_vless_link(proxy, inbound, server, username_tag)
+                elif proxy_type_upper == "VMESS" and proxy.vmess_uuid:
+                    link = generate_vmess_link(proxy, inbound, server, username_tag)
+                elif proxy_type_upper == "TROJAN" and proxy.trojan_password:
+                    link = generate_trojan_link(proxy, inbound, server, username_tag)
+                elif proxy_type_upper == "SHADOWSOCKS" and proxy.ss_password:
+                    link = generate_ss_link(proxy, inbound, server, username_tag)
+                elif proxy_type_upper == "HYSTERIA" and proxy.vmess_uuid:
+                    link = generate_hysteria_link(proxy, inbound, server, username_tag)
+                elif proxy_type_upper == "HYSTERIA2" and proxy.vmess_uuid:
+                    link = generate_hysteria2_link(proxy, inbound, server, username_tag)
+                else:
+                    continue
+                    
+                if link:
+                    links.append(link)
     
     return links
 
@@ -282,8 +288,21 @@ async def get_subscription(
         content = base64.b64encode(b"").decode()
         return Response(content=content, media_type="text/plain")
     
+    # Get enabled nodes with add_host_to_inbounds=True
+    result = await db.execute(
+        select(Node)
+        .where(Node.is_enabled == True)
+        .where(Node.add_host_to_inbounds == True)
+    )
+    nodes = result.scalars().all()
+    
+    if not nodes:
+        # Return empty subscription
+        content = base64.b64encode(b"").decode()
+        return Response(content=content, media_type="text/plain")
+    
     # Generate links
-    links = generate_subscription_links(user, inbounds, username_tag)
+    links = generate_subscription_links(user, inbounds, nodes, username_tag)
     
     if not links:
         # Return empty subscription

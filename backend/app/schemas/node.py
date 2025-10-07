@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, ConfigDict
 class NodeCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=64)
     address: str = Field(..., min_length=1, max_length=255)
+    domain: Optional[str] = Field(None, max_length=255)  # Optional domain for protocols
     api_port: int = Field(50051, ge=1, le=65535)
     api_protocol: str = Field("grpc", pattern="^(grpc|rest)$")
     api_key: str = Field(..., min_length=16)
@@ -20,6 +21,7 @@ class NodeCreate(BaseModel):
 class NodeUpdate(BaseModel):
     name: Optional[str] = None
     address: Optional[str] = None
+    domain: Optional[str] = None
     api_port: Optional[int] = Field(None, ge=1, le=65535)
     api_protocol: Optional[str] = Field(None, pattern="^(grpc|rest)$")
     api_key: Optional[str] = None
@@ -38,6 +40,7 @@ class NodeResponse(BaseModel):
     id: int
     name: str
     address: str
+    domain: Optional[str] = None
     api_port: int
     api_protocol: str
     usage_ratio: float
