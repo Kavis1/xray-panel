@@ -40,6 +40,13 @@ func (m *Manager) Start(backend types.Backend) error {
 	if err := os.WriteFile(configFile, []byte(backend.Config), 0644); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
+	
+	// Sync to disk to ensure file is written
+	syncCmd := exec.Command("/usr/bin/sync")
+	_ = syncCmd.Run()
+	
+	// Small delay to ensure file is fully written
+	time.Sleep(500 * time.Millisecond)
 
 	// Always restart to apply new config
 	log.Printf("[Start] Restarting xray-node via systemd to apply config")
@@ -47,6 +54,9 @@ func (m *Manager) Start(backend types.Backend) error {
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to restart xray via systemd: %w", err)
 	}
+	
+	// Wait for xray to start
+	time.Sleep(1 * time.Second)
 
 	m.running = true
 	m.startTime = time.Now()

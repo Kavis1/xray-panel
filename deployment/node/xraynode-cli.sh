@@ -1,6 +1,6 @@
 #!/bin/bash
 # Xray Node CLI - Management Tool
-# Version: 2.0.5
+# Version: 2.1.0
 
 set -e
 

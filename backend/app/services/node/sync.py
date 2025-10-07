@@ -9,6 +9,7 @@ from app.models.node import Node
 from app.models.user import User
 from app.models.inbound import Inbound
 from app.services.node.grpc_client import NodeGRPCClient
+from app.services.node.rest_client import NodeRestClient
 from app.services.xray.config_builder import XrayConfigBuilder
 from app.db.base import async_session_maker
 
@@ -105,8 +106,8 @@ async def sync_all_nodes(db: AsyncSession, background: bool = False) -> dict:
     
     for node in nodes:
         try:
-            client = NodeGRPCClient(node)
-            # Use restart_xray to ensure Xray picks up new config
+            # Use REST client for better reliability
+            client = NodeRestClient(node)
             result = await client.restart_xray(config_json, users)
             
             # Update node status
@@ -211,8 +212,8 @@ async def sync_single_node(db: AsyncSession, node_id: int) -> dict:
     
     config_json = builder.build()
     
-    # Sync to node with restart
-    client = NodeGRPCClient(node)
+    # Sync to node with restart using REST API
+    client = NodeRestClient(node)
     result = await client.restart_xray(config_json, users)
     
     # Update node status

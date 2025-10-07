@@ -3,9 +3,9 @@
 set -e
 
 # VERSION INFO - Updated automatically
-SCRIPT_VERSION="v2.0.5"
-SCRIPT_DATE="2025-10-08 01:53 UTC"
-LAST_CHANGE="Start() now uses restart instead of start to apply config"
+SCRIPT_VERSION="v2.1.0"
+SCRIPT_DATE="2025-10-08 01:58 UTC"
+LAST_CHANGE="Added REST API server (Marzban-style) for reliable config sync"
 
 # Цвета
 RED='\033[0;31m'

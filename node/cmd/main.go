@@ -22,12 +22,23 @@ func main() {
 	xrayMgr := xray.NewManager(cfg)
 	statsCol := stats.NewCollector()
 
+	// Start REST API server in background
+	restServer := api.NewRestServer(xrayMgr)
+	go func() {
+		restPort := 8080 // REST API port
+		log.Printf("Starting REST API server on port %d", restPort)
+		if err := restServer.Start(restPort); err != nil {
+			log.Printf("REST API server error: %v", err)
+		}
+	}()
+
+	// Start gRPC server (main)
 	if cfg.ServiceProtocol == "grpc" {
 		if err := startGRPCServer(cfg, xrayMgr, statsCol); err != nil {
 			log.Fatalf("Failed to start gRPC server: %v", err)
 		}
 	} else {
-		log.Fatalf("REST server not implemented yet")
+		log.Fatalf("Unknown protocol: %s", cfg.ServiceProtocol)
 	}
 }
 
