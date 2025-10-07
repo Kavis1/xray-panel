@@ -140,6 +140,19 @@ if [ "$UPDATE_MODE" = true ]; then
     fi
     
     echo ""
+    echo -e "${GREEN}════════════════════════════════════════${NC}"
+    echo -e "${GREEN}✓ CLI утилита обновлена!${NC}"
+    echo -e "${GREEN}════════════════════════════════════════${NC}"
+    echo ""
+    echo -e "Управление нодой: ${BLUE}xraynode${NC}"
+    echo ""
+    echo -e "${YELLOW}Доступные команды в меню:${NC}"
+    echo -e "  1. Проверить целостность"
+    echo -e "  2. Переустановить ноду"
+    echo -e "  3. Проверить обновления"
+    echo -e "  4. Удалить ноду"
+    echo ""
+    
     echo -e "${GREEN}Node Service обновлён и перезапущен!${NC}"
     echo ""
     echo -e "${BLUE}Если панель показывает 'Stopped', проверьте:${NC}"
