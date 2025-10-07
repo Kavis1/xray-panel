@@ -2,6 +2,7 @@ package xray
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"sync"
