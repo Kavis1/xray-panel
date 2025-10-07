@@ -73,18 +73,31 @@ class NodeGRPCClient:
     
     async def get_info(self) -> Dict[str, Any]:
         """Get node information"""
-        async with grpc.aio.insecure_channel(self.address) as channel:
-            stub = node_pb2_grpc.NodeServiceStub(channel)
-            response = await stub.GetBaseInfo(node_pb2.Empty())
-            
-            return {
-                "version": response.version,
-                "core_type": response.core_type,
-                "running": response.running,
-                "xray_version": response.xray_version,
-                "uptime": response.uptime,
-                "session_id": response.session_id
-            }
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f"[gRPC Client] Connecting to {self.address}")
+        
+        try:
+            async with grpc.aio.insecure_channel(self.address) as channel:
+                stub = node_pb2_grpc.NodeServiceStub(channel)
+                
+                logger.info(f"[gRPC Client] Calling GetBaseInfo on {self.address}")
+                response = await stub.GetBaseInfo(node_pb2.Empty())
+                
+                logger.info(f"[gRPC Client] Response from {self.address}: running={response.running}")
+                
+                return {
+                    "version": response.version,
+                    "core_type": response.core_type,
+                    "running": response.running,
+                    "xray_version": response.xray_version,
+                    "uptime": response.uptime,
+                    "session_id": response.session_id
+                }
+        except Exception as e:
+            logger.error(f"[gRPC Client] Failed to connect to {self.address}: {e}")
+            raise
     
     async def sync_user(self, user: User) -> Dict[str, Any]:
         """Sync single user to node"""
