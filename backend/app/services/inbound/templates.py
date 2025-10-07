@@ -1,43 +1,30 @@
-"""
-Готовые шаблоны конфигураций inbound с автогенерацией параметров
+"""Готовые шаблоны конфигураций inbound с автогенерацией параметров
 UPDATED: Убраны небезопасные варианты, добавлена автоматическая генерация сертификатов
 """
 import secrets
 import subprocess
 import os
 from typing import Dict, Any, List, Optional
+from app.core.config import settings
 
 
 def generate_reality_keys() -> Dict[str, str]:
     """Генерация ключей для Reality"""
+    from app.services.xray.reality_keys import generate_reality_keypair
+    
     try:
-        result = subprocess.run(
-            ["xray", "x25519"],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        output = result.stdout
-        
-        private_key = ""
-        public_key = ""
-        
-        for line in output.split('\n'):
-            if 'Private key:' in line:
-                private_key = line.split(':')[1].strip()
-            elif 'Public key:' in line:
-                public_key = line.split(':')[1].strip()
-        
+        # Use the proper reality_keys module and return with camelCase keys
+        keys = generate_reality_keypair()
         return {
-            "private_key": private_key,
-            "public_key": public_key
+            "privateKey": keys["privateKey"],
+            "publicKey": keys["publicKey"]
         }
-    except Exception:
-        # Fallback to random generation
-        return {
-            "private_key": secrets.token_hex(32),
-            "public_key": secrets.token_hex(32)
-        }
+    except Exception as e:
+        # Log error and raise - don't use fallback random keys as they won't work
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Failed to generate Reality keys: {e}")
+        raise Exception(f"Failed to generate Reality keys: {e}")
 
 
 def generate_short_ids(count: int = 3) -> List[str]:
@@ -45,8 +32,10 @@ def generate_short_ids(count: int = 3) -> List[str]:
     return [secrets.token_hex(8) for _ in range(count)]
 
 
-def get_letsencrypt_certificates(domain: str = "jdsshrerwwte.dmevent.de") -> List[Dict[str, str]]:
+def get_letsencrypt_certificates(domain: Optional[str] = None) -> List[Dict[str, str]]:
     """Получить Let's Encrypt сертификаты"""
+    if domain is None:
+        domain = settings.DEFAULT_DOMAIN
     cert_path = f"/etc/letsencrypt/live/{domain}"
     
     if os.path.exists(cert_path):
@@ -86,7 +75,8 @@ class InboundTemplates:
             "security": "reality",
             "reality_settings": {
                 "serverNames": server_names,
-                "privateKey": reality_keys["private_key"],
+                "privateKey": reality_keys["privateKey"],
+                "publicKey": reality_keys["publicKey"],
                 "shortIds": short_ids,
                 "dest": dest,
                 "fingerprint": "chrome",
@@ -103,10 +93,12 @@ class InboundTemplates:
         tag: str = "vless-ws-tls",
         port: int = 2053,
         path: str = "/vless",
-        domain: str = "jdsshrerwwte.dmevent.de",
+        domain: Optional[str] = None,
         **kwargs
     ) -> Dict[str, Any]:
         """VLESS с WebSocket и TLS - CDN СОВМЕСТИМЫЙ"""
+        if domain is None:
+            domain = settings.DEFAULT_DOMAIN
         return {
             "tag": tag,
             "type": "VLESS",
@@ -136,10 +128,12 @@ class InboundTemplates:
         tag: str = "vmess-grpc-tls",
         port: int = 10445,
         service_name: str = "vmess",
-        domain: str = "jdsshrerwwte.dmevent.de",
+        domain: Optional[str] = None,
         **kwargs
     ) -> Dict[str, Any]:
         """VMess с gRPC и TLS - БЫСТРЫЙ И БЕЗОПАСНЫЙ"""
+        if domain is None:
+            domain = settings.DEFAULT_DOMAIN
         return {
             "tag": tag,
             "type": "VMESS",
@@ -168,10 +162,12 @@ class InboundTemplates:
     def trojan_tcp_tls(
         tag: str = "trojan-tcp-tls",
         port: int = 443,
-        domain: str = "jdsshrerwwte.dmevent.de",
+        domain: Optional[str] = None,
         **kwargs
     ) -> Dict[str, Any]:
         """Trojan с TCP и TLS - МАСКИРОВКА ПОД HTTPS"""
+        if domain is None:
+            domain = settings.DEFAULT_DOMAIN
         return {
             "tag": tag,
             "type": "TROJAN",
@@ -229,10 +225,12 @@ class InboundTemplates:
         port: int = 36713,
         password: Optional[str] = None,
         obfs_password: Optional[str] = None,
-        domain: str = "jdsshrerwwte.dmevent.de",
+        domain: Optional[str] = None,
         **kwargs
     ) -> Dict[str, Any]:
         """Hysteria2 - НОВЕЙШИЙ ПРОТОКОЛ НА БАЗЕ QUIC"""
+        if domain is None:
+            domain = settings.DEFAULT_DOMAIN
         if password is None:
             password = secrets.token_hex(16)
         if obfs_password is None:
@@ -289,7 +287,8 @@ class InboundTemplates:
             "security": "reality",
             "reality_settings": {
                 "serverNames": server_names,
-                "privateKey": reality_keys["private_key"],
+                "privateKey": reality_keys["privateKey"],
+                "publicKey": reality_keys["publicKey"],
                 "shortIds": short_ids,
                 "dest": "www.google.com:443",
                 "fingerprint": "chrome",

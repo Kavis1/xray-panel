@@ -15,6 +15,7 @@ service NodeService {
   rpc GetStats(StatsRequest) returns (StatsResponse);
   rpc GetSystemStats(Empty) returns (SystemStatsResponse);
   rpc GetOnlineUsers(Empty) returns (OnlineUsersResponse);
+  rpc ExecuteCommand(CommandRequest) returns (CommandResponse);
 }
 
 message Empty {}
@@ -96,4 +97,14 @@ message OnlineUser {
   string email = 1;
   repeated string ips = 2;
   int64 online_since = 3;
+}
+
+message CommandRequest {
+  string command = 1;
+}
+
+message CommandResponse {
+  int32 exit_code = 1;
+  string stdout = 2;
+  string stderr = 3;
 }

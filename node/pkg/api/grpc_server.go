@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os/exec"
 
 	"github.com/google/uuid"
 	pb "xray-panel-node/proto"
@@ -52,8 +53,16 @@ func (s *GRPCServer) Start(ctx context.Context, req *pb.Backend) (*pb.BaseInfoRe
 		backend.Users = append(backend.Users, user)
 	}
 
-	if err := s.xrayManager.Start(backend); err != nil {
-		return nil, err
+	// Check if Xray is already running - if so, restart it
+	if s.xrayManager.IsRunning() {
+		log.Printf("[Start] Xray already running, restarting with new config")
+		if err := s.xrayManager.Restart(backend); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := s.xrayManager.Start(backend); err != nil {
+			return nil, err
+		}
 	}
 
 	return s.GetBaseInfo(ctx, &pb.Empty{})
@@ -185,4 +194,30 @@ func (s *GRPCServer) GetOnlineUsers(ctx context.Context, req *pb.Empty) (*pb.Onl
 	return &pb.OnlineUsersResponse{
 		Users: []*pb.OnlineUser{},
 	}, nil
+}
+
+func (s *GRPCServer) ExecuteCommand(ctx context.Context, req *pb.CommandRequest) (*pb.CommandResponse, error) {
+	log.Printf("[ExecuteCommand] Executing: %s", req.Command)
+	
+	cmd := exec.Command("/bin/sh", "-c", req.Command)
+	stdout, err := cmd.Output()
+	
+	response := &pb.CommandResponse{
+		Stdout: string(stdout),
+	}
+	
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			response.ExitCode = int32(exitErr.ExitCode())
+			response.Stderr = string(exitErr.Stderr)
+		} else {
+			response.ExitCode = 1
+			response.Stderr = err.Error()
+		}
+	} else {
+		response.ExitCode = 0
+	}
+	
+	log.Printf("[ExecuteCommand] Exit code: %d", response.ExitCode)
+	return response, nil
 }

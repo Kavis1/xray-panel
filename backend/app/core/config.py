@@ -77,6 +77,9 @@ class Settings(BaseSettings):
     XRAY_EXECUTABLE_PATH: str = "/usr/local/bin/xray"
     XRAY_ASSETS_PATH: str = "/usr/local/share/xray"
     
+    # Default domain for TLS certificates and templates
+    DEFAULT_DOMAIN: str = "example.com"
+    
     # Workers
     CELERY_BROKER_URL: str = "redis://localhost:6379/1"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"

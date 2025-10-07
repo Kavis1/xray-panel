@@ -197,14 +197,26 @@ class XrayConfigBuilder:
                 stream_settings["tlsSettings"] = inbound.stream_settings["tls_settings"]
             
             # Transport specific settings
-            if inbound.network == "ws" and "ws" in inbound.stream_settings:
-                stream_settings["wsSettings"] = inbound.stream_settings["ws"]
-            elif inbound.network == "grpc" and "grpc" in inbound.stream_settings:
-                stream_settings["grpcSettings"] = inbound.stream_settings["grpc"]
-            elif inbound.network == "h2" and "h2" in inbound.stream_settings:
-                stream_settings["httpSettings"] = inbound.stream_settings["h2"]
-            elif inbound.network == "quic" and "quic" in inbound.stream_settings:
-                stream_settings["quicSettings"] = inbound.stream_settings["quic"]
+            if inbound.network == "ws":
+                if "wsSettings" in inbound.stream_settings:
+                    stream_settings["wsSettings"] = inbound.stream_settings["wsSettings"]
+                elif "ws" in inbound.stream_settings:
+                    stream_settings["wsSettings"] = inbound.stream_settings["ws"]
+            elif inbound.network == "grpc":
+                if "grpcSettings" in inbound.stream_settings:
+                    stream_settings["grpcSettings"] = inbound.stream_settings["grpcSettings"]
+                elif "grpc" in inbound.stream_settings:
+                    stream_settings["grpcSettings"] = inbound.stream_settings["grpc"]
+            elif inbound.network == "h2":
+                if "httpSettings" in inbound.stream_settings:
+                    stream_settings["httpSettings"] = inbound.stream_settings["httpSettings"]
+                elif "h2" in inbound.stream_settings:
+                    stream_settings["httpSettings"] = inbound.stream_settings["h2"]
+            elif inbound.network == "quic":
+                if "quicSettings" in inbound.stream_settings:
+                    stream_settings["quicSettings"] = inbound.stream_settings["quicSettings"]
+                elif "quic" in inbound.stream_settings:
+                    stream_settings["quicSettings"] = inbound.stream_settings["quic"]
             
             # Add default TLS if security is tls but not yet added
             if inbound.security == "tls" and "security" not in stream_settings:

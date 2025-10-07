@@ -41,7 +41,7 @@ export default function SettingsPage() {
   const systemForm = useForm({
     initialValues: {
       panel_name: 'Xray Management Panel',
-      subscription_url: 'https://jdsshrerwwte.dmevent.de/sub',
+      subscription_url: 'https://example.com/sub',
       username_tag: '@mybot',
       session_timeout: 3600,
       enable_registration: false,
@@ -244,15 +244,15 @@ export default function SettingsPage() {
         <Stack gap="sm">
           <Group>
             <Text fw={600}>API Base URL:</Text>
-            <Text c="dimmed">https://jdsshrerwwte.dmevent.de/api/v1</Text>
+            <Text c="dimmed">https://your-domain.com/api/v1</Text>
           </Group>
           <Group>
             <Text fw={600}>Subscription URL:</Text>
-            <Text c="dimmed">https://jdsshrerwwte.dmevent.de/sub</Text>
+            <Text c="dimmed">https://your-domain.com/sub</Text>
           </Group>
           <Group>
             <Text fw={600}>WebSocket URL:</Text>
-            <Text c="dimmed">wss://jdsshrerwwte.dmevent.de/ws</Text>
+            <Text c="dimmed">wss://your-domain.com/ws</Text>
           </Group>
         </Stack>
       </Paper>

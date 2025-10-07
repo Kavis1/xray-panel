@@ -106,7 +106,8 @@ async def sync_all_nodes(db: AsyncSession, background: bool = False) -> dict:
     for node in nodes:
         try:
             client = NodeGRPCClient(node)
-            result = await client.start_xray(config_json, users)
+            # Use restart_xray to ensure Xray picks up new config
+            result = await client.restart_xray(config_json, users)
             
             # Update node status
             node.xray_running = result["running"]
@@ -114,7 +115,7 @@ async def sync_all_nodes(db: AsyncSession, background: bool = False) -> dict:
             await db.commit()
             
             synced += 1
-            logger.info(f"Successfully synced node {node.id} ({node.name})")
+            logger.info(f"Successfully synced and restarted Xray on node {node.id} ({node.name})")
             
         except Exception as e:
             error_str = str(e)
@@ -210,9 +211,9 @@ async def sync_single_node(db: AsyncSession, node_id: int) -> dict:
     
     config_json = builder.build()
     
-    # Sync to node
+    # Sync to node with restart
     client = NodeGRPCClient(node)
-    result = await client.start_xray(config_json, users)
+    result = await client.restart_xray(config_json, users)
     
     # Update node status
     node.xray_running = result["running"]

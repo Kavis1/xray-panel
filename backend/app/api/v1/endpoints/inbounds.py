@@ -9,11 +9,57 @@ from app.schemas.inbound import InboundCreate, InboundUpdate, InboundResponse
 from app.api.deps import get_current_admin
 from app.services.node.sync import sync_all_nodes_background
 from app.services.node.firewall import FirewallManager
+from app.services.xray.reality_keys import generate_reality_keypair
 from app.models.node import Node
 import logging
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def auto_generate_reality_keys_if_needed(inbound_data, security: str) -> dict:
+    """
+    Automatically generate Reality keys if:
+    1. Security is 'reality'
+    2. Keys are not provided or empty
+    
+    Returns the reality_settings dict (possibly with generated keys)
+    """
+    if security != "reality":
+        return inbound_data
+    
+    # Get or create reality_settings
+    reality_settings = inbound_data if isinstance(inbound_data, dict) else {}
+    
+    # Check if keys already exist and are valid (43 or 44 chars)
+    has_private_key = reality_settings.get('privateKey') and len(reality_settings.get('privateKey', '')) in [43, 44]
+    has_public_key = reality_settings.get('publicKey') and len(reality_settings.get('publicKey', '')) in [43, 44]
+    
+    if has_private_key and has_public_key:
+        logger.info("Reality keys already present, skipping auto-generation")
+        return reality_settings
+    
+    # Generate new keys
+    try:
+        keys = generate_reality_keypair()
+        reality_settings['privateKey'] = keys['privateKey']
+        reality_settings['publicKey'] = keys['publicKey']
+        
+        # Set defaults if not present
+        if 'shortIds' not in reality_settings:
+            reality_settings['shortIds'] = ['']
+        if 'serverNames' not in reality_settings:
+            reality_settings['serverNames'] = ['www.google.com']
+        if 'dest' not in reality_settings:
+            reality_settings['dest'] = 'www.google.com:443'
+        
+        logger.info(f"Auto-generated Reality keys: publicKey={keys['publicKey'][:15]}...")
+        return reality_settings
+        
+    except Exception as e:
+        logger.error(f"Failed to auto-generate Reality keys: {e}")
+        # Return original settings on failure
+        return reality_settings
 
 
 async def open_inbound_ports_on_nodes(db: AsyncSession, port: int) -> None:
@@ -100,6 +146,15 @@ async def create_inbound(
             detail="Inbound tag already exists",
         )
     
+    # Auto-generate Reality keys if needed
+    reality_settings = inbound_data.reality_settings
+    if inbound_data.security == "reality":
+        reality_settings = auto_generate_reality_keys_if_needed(
+            reality_settings,
+            inbound_data.security
+        )
+        logger.info(f"Reality keys auto-generated for new inbound {inbound_data.tag}")
+    
     new_inbound = Inbound(
         tag=inbound_data.tag,
         type=inbound_data.type,
@@ -108,7 +163,7 @@ async def create_inbound(
         network=inbound_data.network,
         security=inbound_data.security,
         tls_settings=inbound_data.tls_settings,
-        reality_settings=inbound_data.reality_settings,
+        reality_settings=reality_settings,
         stream_settings=inbound_data.stream_settings,
         sniffing_enabled=inbound_data.sniffing_enabled,
         sniffing_dest_override=inbound_data.sniffing_dest_override,
@@ -167,6 +222,24 @@ async def update_inbound(
         )
     
     update_data = inbound_data.model_dump(exclude_unset=True)
+    
+    # Check if security is being updated to 'reality' or already 'reality'
+    new_security = update_data.get('security', inbound.security)
+    
+    if new_security == "reality":
+        # Get current or new reality_settings
+        if 'reality_settings' in update_data:
+            reality_settings = update_data['reality_settings']
+        else:
+            reality_settings = inbound.reality_settings
+        
+        # Auto-generate keys if needed
+        reality_settings = auto_generate_reality_keys_if_needed(
+            reality_settings,
+            new_security
+        )
+        update_data['reality_settings'] = reality_settings
+        logger.info(f"Reality keys checked/generated for inbound {inbound.tag}")
     
     for field, value in update_data.items():
         setattr(inbound, field, value)

@@ -38,10 +38,32 @@ if [ -d "/tmp/node" ]; then
     cp -r /tmp/node/* .
 fi
 
+# Install protoc if not present
+if ! command -v protoc &> /dev/null; then
+    echo "Installing protoc..."
+    PROTOC_VERSION="25.1"
+    wget "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip"
+    unzip -o "protoc-${PROTOC_VERSION}-linux-x86_64.zip" -d /usr/local
+    rm "protoc-${PROTOC_VERSION}-linux-x86_64.zip"
+fi
+
+# Install protoc-gen-go and protoc-gen-go-grpc
+echo "Installing protoc plugins..."
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+export PATH=$PATH:/root/go/bin
+
+# Compile proto files
+echo "Compiling proto files..."
+protoc --go_out=. --go_opt=paths=source_relative \
+    --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+    proto/node.proto
+
 # Build node service
 echo "Building node service..."
 go mod download
-go build -o node cmd/main.go
+go build -o xray-panel-node cmd/main.go
 
 # Create environment file
 if [ ! -f .env ]; then

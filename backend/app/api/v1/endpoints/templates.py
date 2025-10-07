@@ -85,8 +85,8 @@ async def generate_reality_keys(
     from app.services.inbound.templates import generate_reality_keys
     keys = generate_reality_keys()
     return {
-        "private_key": keys["private_key"],
-        "public_key": keys["public_key"],
+        "privateKey": keys["privateKey"],
+        "publicKey": keys["publicKey"],
         "message": "Ключи успешно сгенерированы. Сохраните приватный ключ в безопасном месте."
     }
 

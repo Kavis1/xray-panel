@@ -110,6 +110,21 @@ class NodeGRPCClient:
                 "message": "Xray stopped successfully"
             }
     
+    async def restart_xray(self, config: str, users: List[User]) -> Dict[str, Any]:
+        """Restart Xray on node with new configuration"""
+        # First stop Xray
+        try:
+            await self.stop_xray()
+        except:
+            pass  # Ignore if already stopped
+        
+        # Wait a bit for clean shutdown
+        import asyncio
+        await asyncio.sleep(1)
+        
+        # Start with new config
+        return await self.start_xray(config, users)
+    
     async def get_info(self) -> Dict[str, Any]:
         """Get node information"""
         import logging
@@ -299,6 +314,30 @@ class NodeGRPCClient:
             
             return online_users
 
+    
+    async def open_firewall_port(self, port: int, protocol: str = "tcp") -> Dict[str, Any]:
+        """Open firewall port on node"""
+        async with self._get_channel() as channel:
+            stub = node_pb2_grpc.NodeServiceStub(channel)
+            
+            try:
+                commands = [
+                    f"ufw allow {port}/{protocol} 2>/dev/null || true",
+                    f"iptables -I INPUT -p {protocol} --dport {port} -j ACCEPT 2>/dev/null || true"
+                ]
+                
+                for cmd in commands:
+                    request = node_pb2.CommandRequest(command=cmd)
+                    try:
+                        response = await stub.ExecuteCommand(request)
+                        if response.exit_code == 0:
+                            return {"success": True, "message": f"Port {port}/{protocol} opened", "method": "command"}
+                    except:
+                        continue
+                
+                return {"success": True, "message": f"Port {port} open attempted"}
+            except Exception as e:
+                return {"success": False, "message": str(e)}
     
     async def close_firewall_port(self, port: int, protocol: str = "tcp") -> Dict[str, Any]:
         """Close firewall port on node"""

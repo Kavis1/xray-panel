@@ -61,16 +61,44 @@ func (m *Manager) Stop() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if !m.running || m.cmd == nil || m.cmd.Process == nil {
-		return fmt.Errorf("xray is not running")
+	// Try to stop via systemd first
+	cmd := exec.Command("/usr/bin/systemctl", "stop", "xray-panel")
+	if err := cmd.Run(); err == nil {
+		log.Printf("[Stop] Stopped xray via systemd")
+		m.running = false
+		return nil
 	}
 
-	if err := m.cmd.Process.Kill(); err != nil {
-		return fmt.Errorf("failed to stop xray: %w", err)
+	// Fallback to killing process
+	if m.cmd != nil && m.cmd.Process != nil {
+		if err := m.cmd.Process.Kill(); err != nil {
+			return fmt.Errorf("failed to stop xray: %w", err)
+		}
+		m.running = false
+		return nil
 	}
 
+	// Last resort: pkill
+	cmd = exec.Command("/usr/bin/pkill", "-9", "xray")
+	_ = cmd.Run()
+	
 	m.running = false
 	return nil
+}
+
+func (m *Manager) Restart(backend types.Backend) error {
+	log.Printf("[Restart] Restarting Xray with new config")
+	
+	// Stop current instance
+	if err := m.Stop(); err != nil {
+		log.Printf("[Restart] Stop failed (ignoring): %v", err)
+	}
+	
+	// Wait for clean shutdown
+	time.Sleep(2 * time.Second)
+	
+	// Start with new config
+	return m.Start(backend)
 }
 
 func (m *Manager) IsRunning() bool {

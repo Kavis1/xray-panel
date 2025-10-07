@@ -146,6 +146,37 @@ class FirewallManager:
 
 
     @staticmethod
+    async def close_port_on_node(node: Node, port: int, protocol: str = "tcp") -> Dict[str, Any]:
+        """
+        Close a port on a specific node via gRPC
+        
+        Args:
+            node: Node instance
+            port: Port number to close
+            protocol: Protocol (tcp/udp)
+            
+        Returns:
+            Dict with success status and message
+        """
+        try:
+            client = NodeGRPCClient(node)
+            result = await client.close_firewall_port(port, protocol)
+            
+            logger.info(f"Closed port {port}/{protocol} on node {node.name}")
+            return {
+                "success": True,
+                "message": f"Port {port}/{protocol} closed on {node.name}",
+                "details": result
+            }
+            
+        except Exception as e:
+            logger.error(f"Failed to close port {port} on node {node.name}: {e}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    @staticmethod
     def close_local_port(port: int, protocol: str = "tcp") -> Dict[str, Any]:
         """Close a port on the local server"""
         import subprocess

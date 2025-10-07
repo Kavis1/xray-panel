@@ -288,6 +288,57 @@ uninstall() {
     echo -e "${GREEN}Нода полностью удалена${NC}"
 }
 
+# Обновить код ноды
+update_node_code() {
+    echo -e "${BLUE}=== Обновление кода ноды ===${NC}"
+    echo ""
+    
+    if [ ! -d "$INSTALL_DIR" ]; then
+        echo -e "${RED}Директория ноды не найдена${NC}"
+        return 1
+    fi
+    
+    # Остановить сервис
+    echo "Остановка xray-panel-node..."
+    systemctl stop xray-panel-node
+    
+    cd "$INSTALL_DIR"
+    
+    # Установить protoc если нет
+    if ! command -v protoc &> /dev/null; then
+        echo "Установка protoc..."
+        PROTOC_VERSION="25.1"
+        wget -q "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip"
+        unzip -o "protoc-${PROTOC_VERSION}-linux-x86_64.zip" -d /usr/local
+        rm "protoc-${PROTOC_VERSION}-linux-x86_64.zip"
+    fi
+    
+    # Установить protoc плагины
+    echo "Установка protoc плагинов..."
+    go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+    
+    export PATH=$PATH:/root/go/bin:/usr/local/go/bin
+    
+    # Компилировать proto
+    echo "Компиляция proto файлов..."
+    protoc --go_out=. --go_opt=paths=source_relative \
+        --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+        proto/node.proto
+    
+    # Пересобрать
+    echo "Сборка node service..."
+    go mod download
+    go build -o xray-panel-node cmd/main.go
+    
+    # Перезапустить
+    echo "Перезапуск xray-panel-node..."
+    systemctl start xray-panel-node
+    
+    echo -e "${GREEN}Обновление завершено!${NC}"
+    systemctl status xray-panel-node --no-pager -l
+}
+
 # Главное меню
 show_menu() {
     clear
@@ -300,7 +351,8 @@ show_menu() {
     echo "1. Проверить целостность"
     echo "2. Переустановить"
     echo "3. Проверить обновления"
-    echo "4. Удалить ноду"
+    echo "4. Обновить код ноды (rebuild)"
+    echo "5. Удалить ноду"
     echo "0. Выход"
     echo ""
     read -p "Выберите действие: " choice
@@ -316,6 +368,9 @@ show_menu() {
             check_updates
             ;;
         4)
+            update_node_code
+            ;;
+        5)
             uninstall
             exit 0
             ;;

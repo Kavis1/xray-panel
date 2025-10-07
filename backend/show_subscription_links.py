@@ -29,8 +29,12 @@ def main():
         print("=" * 100)
         print()
         
-        # Вставьте ваш домен сюда
-        domain = "jdsshrerwwte.dmevent.de"  # CHANGE THIS!
+        # Get domain from environment or use default
+        import os
+        domain = os.getenv("DEFAULT_DOMAIN", "example.com")
+        print(f"📍 Using domain: {domain}")
+        print(f"   (Set DEFAULT_DOMAIN in .env to change)")
+        print()
         
         for username, token, status, expire_at in users:
             if not token:
