@@ -2,6 +2,11 @@
 
 set -e
 
+# VERSION INFO - Updated automatically
+SCRIPT_VERSION="6c2e854"
+SCRIPT_DATE="2025-10-07 18:50 UTC"
+LAST_CHANGE="Add version display for debugging"
+
 # Цвета
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -17,6 +22,8 @@ if [ -d "/opt/xray-panel-node" ] && [ -f "/opt/xray-panel-node/xray-panel-node" 
     echo -e "${YELLOW}  Обнаружена установленная нода${NC}"
     echo -e "${YELLOW}=========================================${NC}"
     echo ""
+    echo -e "${BLUE}Версия скрипта: ${GREEN}${SCRIPT_VERSION}${NC} | ${SCRIPT_DATE}${NC}"
+    echo -e "${BLUE}Последнее изменение: ${LAST_CHANGE}${NC}"
     echo -e "${BLUE}Режим: ОБНОВЛЕНИЕ${NC}"
     echo ""
 else
@@ -24,6 +31,7 @@ else
     echo -e "${BLUE}  Xray Panel - Установка Ноды${NC}"
     echo -e "${BLUE}=========================================${NC}"
     echo ""
+    echo -e "${BLUE}Версия скрипта: ${GREEN}${SCRIPT_VERSION}${NC} | ${SCRIPT_DATE}${NC}"
     echo -e "${BLUE}Режим: НОВАЯ УСТАНОВКА${NC}"
     echo ""
 fi
