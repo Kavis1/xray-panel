@@ -14,9 +14,48 @@ class NodeGRPCClient:
         self.node = node
         self.address = f"{node.address}:{node.api_port}"
         
+    def _get_channel(self):
+        """Get gRPC channel (secure or insecure based on node config)"""
+        # Check if node has SSL certificates configured
+        if self.node.ssl_cert and self.node.ssl_key and self.node.ssl_ca:
+            import os
+            # Verify files exist
+            if os.path.exists(self.node.ssl_cert) and os.path.exists(self.node.ssl_ca):
+                try:
+                    # Read SSL certificates
+                    with open(self.node.ssl_cert, 'rb') as f:
+                        cert = f.read()
+                    
+                    key_path = self.node.ssl_key
+                    if key_path.startswith('*'):
+                        # Key is masked in DB, derive from cert path
+                        key_path = self.node.ssl_cert.replace('cert.pem', 'key.pem')
+                    
+                    with open(key_path, 'rb') as f:
+                        key = f.read()
+                    
+                    with open(self.node.ssl_ca, 'rb') as f:
+                        ca = f.read()
+                    
+                    # Create SSL credentials
+                    credentials = grpc.ssl_channel_credentials(
+                        root_certificates=ca,
+                        private_key=key,
+                        certificate_chain=cert
+                    )
+                    
+                    return grpc.aio.secure_channel(self.address, credentials)
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"Failed to load SSL certs for {self.address}, falling back to insecure: {e}")
+        
+        # Fallback to insecure channel
+        return self._get_channel()
+        
     async def start_xray(self, config: str, users: List[User]) -> Dict[str, Any]:
         """Start Xray on node with configuration and users"""
-        async with grpc.aio.insecure_channel(self.address) as channel:
+        async with self._get_channel() as channel:
             stub = node_pb2_grpc.NodeServiceStub(channel)
             
             # Prepare Backend message
@@ -62,7 +101,7 @@ class NodeGRPCClient:
     
     async def stop_xray(self) -> Dict[str, Any]:
         """Stop Xray on node"""
-        async with grpc.aio.insecure_channel(self.address) as channel:
+        async with self._get_channel() as channel:
             stub = node_pb2_grpc.NodeServiceStub(channel)
             response = await stub.Stop(node_pb2.Empty())
             
@@ -79,7 +118,7 @@ class NodeGRPCClient:
         logger.info(f"[gRPC Client] Connecting to {self.address}")
         
         try:
-            async with grpc.aio.insecure_channel(self.address) as channel:
+            async with self._get_channel() as channel:
                 stub = node_pb2_grpc.NodeServiceStub(channel)
                 
                 logger.info(f"[gRPC Client] Calling GetBaseInfo on {self.address}")
@@ -116,7 +155,7 @@ class NodeGRPCClient:
     
     async def sync_user(self, user: User) -> Dict[str, Any]:
         """Sync single user to node"""
-        async with grpc.aio.insecure_channel(self.address) as channel:
+        async with self._get_channel() as channel:
             stub = node_pb2_grpc.NodeServiceStub(channel)
             
             proxies = []
@@ -149,7 +188,7 @@ class NodeGRPCClient:
     
     async def sync_users(self, users: List[User]) -> Dict[str, Any]:
         """Sync all users to node"""
-        async with grpc.aio.insecure_channel(self.address) as channel:
+        async with self._get_channel() as channel:
             stub = node_pb2_grpc.NodeServiceStub(channel)
             
             user_messages = []
@@ -186,7 +225,7 @@ class NodeGRPCClient:
     
     async def get_user_stats(self, email: str, reset: bool = False) -> Dict[str, Any]:
         """Get traffic statistics for specific user"""
-        async with grpc.aio.insecure_channel(self.address) as channel:
+        async with self._get_channel() as channel:
             stub = node_pb2_grpc.NodeServiceStub(channel)
             
             request = node_pb2.StatsRequest(
@@ -206,7 +245,7 @@ class NodeGRPCClient:
     
     async def get_online_users(self) -> Dict[str, Any]:
         """Get list of online users with their active connections"""
-        async with grpc.aio.insecure_channel(self.address) as channel:
+        async with self._get_channel() as channel:
             stub = node_pb2_grpc.NodeServiceStub(channel)
             
             response = await stub.GetOnlineUsers(node_pb2.Empty())
@@ -224,7 +263,7 @@ class NodeGRPCClient:
     
     async def get_inbound_stats(self, tag: str, reset: bool = False) -> Dict[str, Any]:
         """Get traffic statistics for specific inbound"""
-        async with grpc.aio.insecure_channel(self.address) as channel:
+        async with self._get_channel() as channel:
             stub = node_pb2_grpc.NodeServiceStub(channel)
             
             request = node_pb2.StatsRequest(
@@ -244,7 +283,7 @@ class NodeGRPCClient:
     
     async def get_online_users(self) -> Dict[str, Any]:
         """Get list of online users with their active connections"""
-        async with grpc.aio.insecure_channel(self.address) as channel:
+        async with self._get_channel() as channel:
             stub = node_pb2_grpc.NodeServiceStub(channel)
             
             response = await stub.GetOnlineUsers(node_pb2.Empty())
@@ -263,7 +302,7 @@ class NodeGRPCClient:
     
     async def close_firewall_port(self, port: int, protocol: str = "tcp") -> Dict[str, Any]:
         """Close firewall port on node"""
-        async with grpc.aio.insecure_channel(self.address) as channel:
+        async with self._get_channel() as channel:
             stub = node_pb2_grpc.NodeServiceStub(channel)
             
             try:
