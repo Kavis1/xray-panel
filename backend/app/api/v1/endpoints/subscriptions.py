@@ -72,25 +72,47 @@ def generate_vless_link(proxy, inbound, server: str, username_tag: str = "") -> 
     }
     
     # Add Reality settings if present
-    if inbound.security == "reality" and inbound.stream_settings:
-        reality = inbound.stream_settings.get("reality_settings", {})
-        if reality.get("server_names"):
-            params["sni"] = reality["server_names"][0]
-        if reality.get("short_ids"):
-            params["sid"] = reality["short_ids"][0]
-        if proxy.fingerprint:
-            params["fp"] = proxy.fingerprint
+    if inbound.security == "reality":
+        reality = inbound.reality_settings or {}
+        
+        # SNI from Reality serverNames
+        server_names = reality.get("serverNames", [])
+        if server_names and server_names[0]:
+            params["sni"] = server_names[0]
+        
+        # Short ID
+        short_ids = reality.get("shortIds", [])
+        if short_ids and short_ids[0]:
+            params["sid"] = short_ids[0]
+        
+        # Public Key (извлекаем из приватного ключа если нужно, но обычно должен быть отдельно)
+        # В реальности нужен публичный ключ, но в БД только приватный
+        # Для генерации публичного ключа из приватного нужна библиотека
+        # Пока оставим пустым, но это нужно исправить
+        if reality.get("publicKey"):
+            params["pbk"] = reality["publicKey"]
+        
+        # Fingerprint
+        params["fp"] = proxy.fingerprint or "chrome"
+        
+        # Flow
         if proxy.vless_flow:
             params["flow"] = proxy.vless_flow
-        params["pbk"] = reality.get("public_key", "")
     
     # Add TLS settings if present
-    elif inbound.security == "tls" and proxy.sni:
-        params["sni"] = proxy.sni
-        if proxy.alpn:
-            params["alpn"] = ",".join(proxy.alpn)
-        if proxy.fingerprint:
-            params["fp"] = proxy.fingerprint
+    elif inbound.security == "tls":
+        tls_settings = inbound.tls_settings or {}
+        
+        # SNI - используем домен сервера
+        params["sni"] = server
+        
+        # ALPN from TLS settings
+        alpn = tls_settings.get("alpn", [])
+        if alpn:
+            params["alpn"] = ",".join(alpn)
+        
+        # Fingerprint
+        params["fp"] = proxy.fingerprint or "chrome"
     
     query = "&".join([f"{k}={quote(str(v))}" for k, v in params.items() if v])
     remark = f"{inbound.remark or inbound.tag}{username_tag}"
@@ -102,6 +124,25 @@ def generate_vmess_link(proxy, inbound, server: str, username_tag: str = "") -> 
     """Generate VMess link"""
     import json
     
+    # Get stream settings
+    stream_settings = inbound.stream_settings or {}
+    tls_settings = inbound.tls_settings or {}
+    
+    # Path for WS/HTTP2
+    path = ""
+    if inbound.network == "ws":
+        path = stream_settings.get("path", "/")
+    elif inbound.network == "h2":
+        path = stream_settings.get("path", "/")
+    
+    # Host header
+    host = stream_settings.get("host", "")
+    
+    # TLS/SNI/ALPN
+    tls = inbound.security if inbound.security in ["tls", "reality"] else "none"
+    sni = server if tls == "tls" else ""
+    alpn = ",".join(tls_settings.get("alpn", [])) if tls == "tls" else ""
+    
     config = {
         "v": "2",
         "ps": f"{inbound.remark or inbound.tag}{username_tag}",
@@ -111,11 +152,12 @@ def generate_vmess_link(proxy, inbound, server: str, username_tag: str = "") -> 
         "aid": 0,
         "net": inbound.network or "tcp",
         "type": "none",
-        "host": "",
-        "path": "",
-        "tls": inbound.security or "none",
-        "sni": proxy.sni or "",
-        "alpn": ",".join(proxy.alpn) if proxy.alpn else ""
+        "host": host,
+        "path": path,
+        "tls": tls,
+        "sni": sni,
+        "alpn": alpn,
+        "fp": "chrome" if tls == "tls" else ""
     }
     
     json_str = json.dumps(config)
@@ -127,10 +169,24 @@ def generate_trojan_link(proxy, inbound, server: str, username_tag: str = "") ->
     """Generate Trojan link"""
     params = {}
     
-    if inbound.security == "tls" and proxy.sni:
-        params["sni"] = proxy.sni
-    if proxy.alpn:
-        params["alpn"] = ",".join(proxy.alpn)
+    # Add TLS parameters
+    if inbound.security == "tls":
+        tls_settings = inbound.tls_settings or {}
+        
+        # SNI
+        params["sni"] = server
+        
+        # ALPN
+        alpn = tls_settings.get("alpn", [])
+        if alpn:
+            params["alpn"] = ",".join(alpn)
+        
+        # Fingerprint
+        params["fp"] = "chrome"
+        
+        # Security type
+        params["security"] = "tls"
+        params["type"] = inbound.network or "tcp"
     
     query = "&".join([f"{k}={quote(str(v))}" for k, v in params.items() if v])
     query_str = f"?{query}" if query else ""
