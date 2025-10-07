@@ -45,7 +45,7 @@ async def collect_node_stats_async():
                 if is_local:
                     # For local node: use systemctl directly
                     xray_check = subprocess.run(
-                        ['systemctl', 'is-active', 'xray-panel.service'],
+                        ['/usr/bin/systemctl', 'is-active', 'xray-panel.service'],
                         capture_output=True,
                         text=True,
                         timeout=2
@@ -55,7 +55,7 @@ async def collect_node_stats_async():
                     # Get Xray version locally
                     if xray_running:
                         version_check = subprocess.run(
-                            ['xray', 'version'],
+                            ['/usr/local/bin/xray', 'version'],
                             capture_output=True,
                             text=True,
                             timeout=2

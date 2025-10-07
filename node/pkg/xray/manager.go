@@ -81,14 +81,21 @@ func (m *Manager) IsRunning() bool {
 		return true
 	}
 	
-	// If not running internally, check if systemd service is running
-	cmd := exec.Command("systemctl", "is-active", "xray-node")
+	// Check if Xray process is actually running
+	cmd := exec.Command("pidof", "xray")
+	if err := cmd.Run(); err == nil {
+		// Xray process found
+		return true
+	}
+	
+	// If not found by pidof, check systemd services
+	cmd = exec.Command("/usr/bin/systemctl", "is-active", "xray-node")
 	if err := cmd.Run(); err == nil {
 		return true
 	}
 	
 	// Also check xray-panel service (for compatibility)
-	cmd = exec.Command("systemctl", "is-active", "xray-panel")
+	cmd = exec.Command("/usr/bin/systemctl", "is-active", "xray-panel")
 	if err := cmd.Run(); err == nil {
 		return true
 	}
