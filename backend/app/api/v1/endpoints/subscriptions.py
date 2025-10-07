@@ -91,12 +91,18 @@ def generate_vless_link(proxy, inbound, server: str, username_tag: str = "") -> 
         if short_ids and short_ids[0]:
             params["sid"] = short_ids[0]
         
-        # Public Key (извлекаем из приватного ключа если нужно, но обычно должен быть отдельно)
-        # В реальности нужен публичный ключ, но в БД только приватный
-        # Для генерации публичного ключа из приватного нужна библиотека
-        # Пока оставим пустым, но это нужно исправить
+        # Public Key - convert to URL-safe base64 (no padding)
         if reality.get("publicKey"):
-            params["pbk"] = reality["publicKey"]
+            import base64
+            try:
+                # Decode standard base64
+                decoded = base64.b64decode(reality["publicKey"])
+                # Encode as URL-safe base64 without padding
+                urlsafe_pbk = base64.urlsafe_b64encode(decoded).decode().rstrip('=')
+                params["pbk"] = urlsafe_pbk
+            except:
+                # Fallback to original if conversion fails
+                params["pbk"] = reality["publicKey"]
         
         # Fingerprint
         params["fp"] = proxy.fingerprint or "chrome"
