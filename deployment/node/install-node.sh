@@ -559,6 +559,18 @@ echo -e "  systemctl restart xray-node             ${BLUE}# Перезапуск
 echo -e "  systemctl restart singbox-node          ${BLUE}# Перезапуск sing-box${NC}"
 echo -e "  systemctl restart xray-panel-node       ${BLUE}# Перезапуск Node Service${NC}"
 echo ""
+
+# Установка CLI утилиты
+echo "Установка xraynode CLI..."
+curl -s "https://api.github.com/repos/Kavis1/xray-panel/contents/deployment/node/xraynode-cli.sh" | python3 -c "import sys, json, base64; print(base64.b64decode(json.load(sys.stdin)['content']).decode())" > /usr/local/bin/xraynode 2>/dev/null || true
+chmod +x /usr/local/bin/xraynode 2>/dev/null || true
+
+# Сохранить версию
+echo "$SCRIPT_VERSION" > /opt/xray-panel-node/.version
+
+echo ""
+echo -e "${GREEN}CLI установлен!${NC} Используйте команду: ${BLUE}xraynode${NC}"
+echo ""
 echo -e "${YELLOW}Логи:${NC}"
 echo -e "  journalctl -u xray-node -f              ${BLUE}# Логи Xray${NC}"
 echo -e "  journalctl -u singbox-node -f           ${BLUE}# Логи sing-box${NC}"
