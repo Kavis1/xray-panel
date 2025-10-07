@@ -54,6 +54,7 @@ class User(Base):
     expire_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     
     # Subscription
+    subscription_token: Mapped[Optional[str]] = mapped_column(String(16), unique=True, index=True, nullable=True)
     sub_revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     sub_last_user_agent: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     

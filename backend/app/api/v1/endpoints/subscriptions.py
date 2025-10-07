@@ -165,24 +165,24 @@ def generate_hysteria2_link(proxy, inbound, server: str, username_tag: str = "")
     return f"hysteria2://{auth}@{server}:{inbound.port}#{quote(remark)}"
 
 
-@router.get("/{username}")
+@router.get("/{token}")
 async def get_subscription(
-    username: str,
+    token: str,
     db: AsyncSession = Depends(get_db),
     user_agent: str = Header(None),
 ):
-    # Load user with proxies
+    # Load user with proxies by subscription_token
     result = await db.execute(
         select(User)
         .options(selectinload(User.proxies))
-        .where(User.username == username)
+        .where(User.subscription_token == token)
     )
     user = result.scalar_one_or_none()
     
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
+            detail="Subscription not found",
         )
     
     if user.sub_revoked_at:
@@ -409,24 +409,24 @@ def generate_singbox_outbound(proxy, inbound, server: str, username_tag: str = "
     return {}
 
 
-@router.get("/{username}/singbox")
+@router.get("/singbox/{token}")
 async def get_singbox_subscription(
-    username: str,
+    token: str,
     db: AsyncSession = Depends(get_db),
 ):
-    """Get sing-box JSON subscription without disable_sni"""
-    # Load user with proxies
+    """Get sing-box JSON subscription by token"""
+    # Load user with proxies by subscription_token
     result = await db.execute(
         select(User)
         .options(selectinload(User.proxies))
-        .where(User.username == username)
+        .where(User.subscription_token == token)
     )
     user = result.scalar_one_or_none()
     
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
+            detail="Subscription not found",
         )
     
     if user.sub_revoked_at:
