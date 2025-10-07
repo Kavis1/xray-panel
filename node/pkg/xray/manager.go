@@ -78,33 +78,47 @@ func (m *Manager) IsRunning() bool {
 	
 	// First check internal flag
 	if m.running {
+		log.Printf("[IsRunning] Internal flag: running=true")
 		return true
 	}
 	
 	// Primary check: systemd service status (most reliable for systemd-managed services)
 	cmd := exec.Command("/usr/bin/systemctl", "is-active", "--quiet", "xray-node")
 	if err := cmd.Run(); err == nil {
+		log.Printf("[IsRunning] systemctl xray-node: SUCCESS")
 		return true
+	} else {
+		log.Printf("[IsRunning] systemctl xray-node failed: %v", err)
 	}
 	
 	// Fallback: check xray-panel service (for compatibility)
 	cmd = exec.Command("/usr/bin/systemctl", "is-active", "--quiet", "xray-panel")
 	if err := cmd.Run(); err == nil {
+		log.Printf("[IsRunning] systemctl xray-panel: SUCCESS")
 		return true
+	} else {
+		log.Printf("[IsRunning] systemctl xray-panel failed: %v", err)
 	}
 	
 	// Alternative: check if Xray process exists
 	cmd = exec.Command("/usr/bin/pidof", "xray")
 	if err := cmd.Run(); err == nil {
+		log.Printf("[IsRunning] pidof xray: SUCCESS")
 		return true
+	} else {
+		log.Printf("[IsRunning] pidof xray failed: %v", err)
 	}
 	
 	// Last resort: pgrep
 	cmd = exec.Command("/usr/bin/pgrep", "-x", "xray")
 	if err := cmd.Run(); err == nil {
+		log.Printf("[IsRunning] pgrep xray: SUCCESS")
 		return true
+	} else {
+		log.Printf("[IsRunning] pgrep xray failed: %v", err)
 	}
 	
+	log.Printf("[IsRunning] All checks failed, returning false")
 	return false
 }
 
