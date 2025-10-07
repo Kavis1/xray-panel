@@ -39,6 +39,52 @@ async def list_nodes(
     return nodes
 
 
+@router.post("/generate-ssl")
+async def generate_ssl_certificate(
+    node_name: str,
+    node_address: str,
+    current_admin: Admin = Depends(get_current_admin),
+):
+    """Generate SSL certificate for node BEFORE creating it"""
+    try:
+        import ipaddress
+        # Validate if address is IP
+        try:
+            ipaddress.ip_address(node_address)
+            node_ip = node_address
+        except ValueError:
+            # It's a domain, use as-is
+            node_ip = node_address
+        
+        # Generate with temporary ID (will be replaced when node is created)
+        import time
+        temp_id = int(time.time())
+        
+        certs = cert_manager.generate_node_certificate(
+            node_id=temp_id,
+            node_name=node_name,
+            node_address=node_ip
+        )
+        
+        logger.info(f"Generated SSL certificate for pre-creation: {node_name}")
+        
+        return {
+            "success": True,
+            "name": node_name,
+            "address": node_address,
+            "ca_certificate": certs["ca_certificate"],
+            "client_certificate": certs["certificate"],
+            "client_key": certs["private_key"],
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to generate SSL certificate: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate SSL certificate: {str(e)}",
+        )
+
+
 @router.post("/", response_model=NodeResponse, status_code=status.HTTP_201_CREATED)
 async def create_node(
     node_data: NodeCreate,
@@ -72,43 +118,9 @@ async def create_node(
     await db.commit()
     await db.refresh(new_node)
     
-    # Generate SSL client certificate for the node
-    try:
-        import ipaddress
-        # Validate if address is IP
-        try:
-            ipaddress.ip_address(node_data.address)
-            node_ip = node_data.address
-        except ValueError:
-            # It's a domain, use as-is
-            node_ip = node_data.address
-        
-        certs = cert_manager.generate_node_certificate(
-            node_id=new_node.id,
-            node_name=node_data.name,
-            node_address=node_ip
-        )
-        
-        # Store certificate paths in node (for panel to use)
-        new_node.ssl_cert = certs["cert_file"]
-        new_node.ssl_key = certs["key_file"]
-        new_node.ssl_ca = str(cert_manager.CA_CERT_FILE)
-        await db.commit()
-        
-        # Add certificate info to response
-        response = NodeResponse.model_validate(new_node)
-        response.ssl_client_certificate = certs["certificate"]
-        response.ssl_client_key = certs["private_key"]
-        response.ssl_ca_certificate = certs["ca_certificate"]
-        
-        logger.info(f"Generated SSL certificate for node {new_node.id} ({new_node.name})")
-        
-        return response
-        
-    except Exception as e:
-        logger.error(f"Failed to generate SSL certificate for node {new_node.id}: {e}")
-        # Still return node, but without certificates
-        return new_node
+    logger.info(f"Created node {new_node.id} ({new_node.name})")
+    
+    return new_node
 
 
 @router.get("/{node_id}", response_model=NodeResponse)

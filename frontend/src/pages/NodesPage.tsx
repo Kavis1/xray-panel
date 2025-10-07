@@ -74,6 +74,45 @@ export default function NodesPage() {
     loadNodes();
   }, []);
 
+  const handleGenerateSSL = async () => {
+    const name = form.values.name;
+    const address = form.values.address;
+    
+    if (!name || !address) {
+      notifications.show({
+        title: 'Error',
+        message: 'Please fill in Node Name and Address first',
+        color: 'red',
+      });
+      return;
+    }
+    
+    try {
+      const response = await nodesApi.generateSSL(name, address);
+      const data = response.data;
+      
+      setCreatedNodeSSL({
+        name: data.name,
+        certificate: data.client_certificate,
+        key: data.client_key,
+        ca: data.ca_certificate,
+      });
+      setSSLModalOpened(true);
+      
+      notifications.show({
+        title: 'Success',
+        message: 'SSL certificates generated',
+        color: 'green',
+      });
+    } catch (error: any) {
+      notifications.show({
+        title: 'Error',
+        message: handleApiError(error, 'Failed to generate SSL certificate'),
+        color: 'red',
+      });
+    }
+  };
+
   const handleSubmit = async (values: any) => {
     try {
       if (editingNode) {
@@ -84,20 +123,7 @@ export default function NodesPage() {
           color: 'green',
         });
       } else {
-        const response = await nodesApi.create(values);
-        const newNode = response.data;
-        
-        // Show SSL certificates if available
-        if (newNode.ssl_client_certificate) {
-          setCreatedNodeSSL({
-            name: newNode.name,
-            certificate: newNode.ssl_client_certificate || '',
-            key: newNode.ssl_client_key || '',
-            ca: newNode.ssl_ca_certificate || '',
-          });
-          setSSLModalOpened(true);
-        }
-        
+        await nodesApi.create(values);
         notifications.show({
           title: 'Success',
           message: 'Node created successfully',
@@ -107,6 +133,7 @@ export default function NodesPage() {
       setModalOpened(false);
       form.reset();
       setEditingNode(null);
+      setCreatedNodeSSL(null);
       loadNodes();
     } catch (error: any) {
       notifications.show({
@@ -324,6 +351,27 @@ export default function NodesPage() {
               required
               {...form.getInputProps('address')}
             />
+            
+            {!editingNode && (
+              <Paper p="sm" withBorder bg="blue.0">
+                <Group justify="space-between">
+                  <div>
+                    <Text size="sm" fw={500}>SSL Certificates</Text>
+                    <Text size="xs" c="dimmed">
+                      Generate SSL certificates before creating the node
+                    </Text>
+                  </div>
+                  <Button
+                    variant="light"
+                    size="sm"
+                    onClick={handleGenerateSSL}
+                    disabled={!form.values.name || !form.values.address}
+                  >
+                    Generate SSL
+                  </Button>
+                </Group>
+              </Paper>
+            )}
             <NumberInput
               label="API Port"
               placeholder="50051"

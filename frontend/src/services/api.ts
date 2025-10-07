@@ -75,6 +75,18 @@ export const nodesApi = {
   connect: (id: number) => api.post(`/nodes/${id}/connect`),
   
   disconnect: (id: number) => api.post(`/nodes/${id}/disconnect`),
+  
+  generateSSL: (nodeName: string, nodeAddress: string) =>
+    api.post<{
+      success: boolean;
+      name: string;
+      address: string;
+      ca_certificate: string;
+      client_certificate: string;
+      client_key: string;
+    }>('/nodes/generate-ssl', null, {
+      params: { node_name: nodeName, node_address: nodeAddress },
+    }),
 };
 
 export const inboundsApi = {
