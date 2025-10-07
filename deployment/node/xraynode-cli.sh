@@ -1,6 +1,6 @@
 #!/bin/bash
 # Xray Node CLI - Management Tool
-# Version: 2.0.1
+# Version: 2.0.2
 
 set -e
 
@@ -308,9 +308,20 @@ update_node_code() {
     if ! command -v protoc &> /dev/null; then
         echo "Установка protoc..."
         PROTOC_VERSION="25.1"
-        wget -q "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip"
-        unzip -o "protoc-${PROTOC_VERSION}-linux-x86_64.zip" -d /usr/local
-        rm "protoc-${PROTOC_VERSION}-linux-x86_64.zip"
+        ARCH=$(uname -m)
+        if [ "$ARCH" = "x86_64" ]; then
+            PROTOC_ARCH="x86_64"
+        elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+            PROTOC_ARCH="aarch_64"
+        else
+            echo -e "${RED}Неподдерживаемая архитектура: $ARCH${NC}"
+            return 1
+        fi
+        
+        cd /tmp
+        wget -q "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-${PROTOC_ARCH}.zip"
+        unzip -q -o "protoc-${PROTOC_VERSION}-linux-${PROTOC_ARCH}.zip" -d /usr/local
+        rm "protoc-${PROTOC_VERSION}-linux-${PROTOC_ARCH}.zip"
     fi
     
     # Установить protoc плагины

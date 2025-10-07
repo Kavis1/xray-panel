@@ -3,9 +3,9 @@
 set -e
 
 # VERSION INFO - Updated automatically
-SCRIPT_VERSION="v2.0.1"
-SCRIPT_DATE="2025-10-08 01:38 UTC"
-LAST_CHANGE="Added proto compilation and auto-restart support"
+SCRIPT_VERSION="v2.0.2"
+SCRIPT_DATE="2025-10-08 01:40 UTC"
+LAST_CHANGE="Fixed ARM64 architecture support for protoc"
 
 # Цвета
 RED='\033[0;31m'
@@ -91,10 +91,20 @@ if [ "$UPDATE_MODE" = true ]; then
     if ! command -v protoc &> /dev/null; then
         echo "  → Установка protoc..."
         PROTOC_VERSION="25.1"
+        ARCH=$(uname -m)
+        if [ "$ARCH" = "x86_64" ]; then
+            PROTOC_ARCH="x86_64"
+        elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+            PROTOC_ARCH="aarch_64"
+        else
+            echo -e "${RED}Неподдерживаемая архитектура: $ARCH${NC}"
+            exit 1
+        fi
+        
         cd /tmp
-        wget -q "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip"
-        unzip -q -o "protoc-${PROTOC_VERSION}-linux-x86_64.zip" -d /usr/local
-        rm "protoc-${PROTOC_VERSION}-linux-x86_64.zip"
+        wget -q "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-${PROTOC_ARCH}.zip"
+        unzip -q -o "protoc-${PROTOC_VERSION}-linux-${PROTOC_ARCH}.zip" -d /usr/local
+        rm "protoc-${PROTOC_VERSION}-linux-${PROTOC_ARCH}.zip"
     fi
     
     # Установить protoc плагины

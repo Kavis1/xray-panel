@@ -42,9 +42,19 @@ fi
 if ! command -v protoc &> /dev/null; then
     echo "Installing protoc..."
     PROTOC_VERSION="25.1"
-    wget "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip"
-    unzip -o "protoc-${PROTOC_VERSION}-linux-x86_64.zip" -d /usr/local
-    rm "protoc-${PROTOC_VERSION}-linux-x86_64.zip"
+    ARCH=$(uname -m)
+    if [ "$ARCH" = "x86_64" ]; then
+        PROTOC_ARCH="x86_64"
+    elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+        PROTOC_ARCH="aarch_64"
+    else
+        echo "Unsupported architecture: $ARCH"
+        exit 1
+    fi
+    
+    wget "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-${PROTOC_ARCH}.zip"
+    unzip -o "protoc-${PROTOC_VERSION}-linux-${PROTOC_ARCH}.zip" -d /usr/local
+    rm "protoc-${PROTOC_VERSION}-linux-${PROTOC_ARCH}.zip"
 fi
 
 # Install protoc-gen-go and protoc-gen-go-grpc
