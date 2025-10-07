@@ -3,9 +3,9 @@
 set -e
 
 # VERSION INFO - Updated automatically
-SCRIPT_VERSION="6c2e854"
-SCRIPT_DATE="2025-10-07 18:50 UTC"
-LAST_CHANGE="Add version display for debugging"
+SCRIPT_VERSION="7a3d912"
+SCRIPT_DATE="2025-10-07 19:00 UTC"
+LAST_CHANGE="Fix: Use full path /usr/bin/pidof + pgrep fallback"
 
 # Цвета
 RED='\033[0;31m'
