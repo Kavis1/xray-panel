@@ -3,7 +3,7 @@
 set -e
 
 # VERSION INFO - Updated automatically
-SCRIPT_VERSION="v1.1.2"
+SCRIPT_VERSION="v2.0.0"
 SCRIPT_DATE="2025-10-07 20:10 UTC"
 LAST_CHANGE="Fixed CLI version comparison"
 
