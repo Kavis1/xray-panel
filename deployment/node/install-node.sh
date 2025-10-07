@@ -258,6 +258,28 @@ chmod +x /usr/bin/sing-box
 rm -rf "sing-box-${SINGBOX_VERSION}-linux-${SINGBOX_ARCH}"*
 echo -e "${GREEN}✓${NC} sing-box установлен (v${SINGBOX_VERSION})"
 
+# Открытие портов в файрволе
+echo -e "${YELLOW}[3.5/6]${NC} Открытие портов в firewall..."
+PORTS=(443 7443 8388 10080 50051)
+
+if command -v ufw &> /dev/null; then
+    for port in "${PORTS[@]}"; do
+        ufw allow $port/tcp >/dev/null 2>&1 || true
+    done
+    echo -e "${GREEN}✓${NC} Порты открыты через UFW"
+elif command -v iptables &> /dev/null; then
+    for port in "${PORTS[@]}"; do
+        iptables -I INPUT -p tcp --dport $port -j ACCEPT >/dev/null 2>&1 || true
+    done
+    # Сохранить правила
+    if command -v netfilter-persistent &> /dev/null; then
+        netfilter-persistent save >/dev/null 2>&1 || true
+    fi
+    echo -e "${GREEN}✓${NC} Порты открыты через iptables"
+else
+    echo -e "${YELLOW}⚠${NC} Firewall не обнаружен, порты могут быть уже открыты"
+fi
+
 # Установка Go (для сборки Node Service)
 echo -e "${YELLOW}[4/6]${NC} Установка Go..."
 GO_VERSION="1.23.1"

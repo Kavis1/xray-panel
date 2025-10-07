@@ -8,10 +8,40 @@ from app.models.inbound import Inbound
 from app.schemas.inbound import InboundCreate, InboundUpdate, InboundResponse
 from app.api.deps import get_current_admin
 from app.services.node.sync import sync_all_nodes_background
+from app.services.node.firewall import FirewallManager
+from app.models.node import Node
 import logging
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+async def open_inbound_ports_on_nodes(db: AsyncSession, port: int) -> None:
+    """Open inbound port on all nodes and locally"""
+    # Open port locally (on panel server)
+    local_result = FirewallManager.open_local_port(port, "tcp")
+    if local_result["success"]:
+        logger.info(f"Opened port {port} locally: {local_result.get('message')}")
+    else:
+        logger.warning(f"Failed to open port {port} locally: {local_result.get('error')}")
+    
+    # Open port on all enabled remote nodes
+    result = await db.execute(select(Node).where(Node.is_enabled == True))
+    nodes = result.scalars().all()
+    
+    for node in nodes:
+        # Skip local node (already handled above)
+        if node.address in ['127.0.0.1', 'localhost', '::1']:
+            continue
+        
+        try:
+            node_result = await FirewallManager.open_port_on_node(node, port, "tcp")
+            if node_result["success"]:
+                logger.info(f"Opened port {port} on node {node.name}")
+            else:
+                logger.warning(f"Failed to open port {port} on node {node.name}: {node_result.get('error')}")
+        except Exception as e:
+            logger.error(f"Error opening port {port} on node {node.name}: {e}")
 
 
 @router.get("/", response_model=List[InboundResponse])
@@ -63,9 +93,12 @@ async def create_inbound(
     await db.commit()
     await db.refresh(new_inbound)
     
+    # Auto-open port on all nodes in background
+    background_tasks.add_task(open_inbound_ports_on_nodes, db, new_inbound.port)
+    
     # Auto-sync to all nodes in background
     background_tasks.add_task(sync_all_nodes_background)
-    logger.info(f"Inbound {new_inbound.tag} created, queued sync to all nodes")
+    logger.info(f"Inbound {new_inbound.tag} created, queued port opening and sync to all nodes")
     
     return new_inbound
 
