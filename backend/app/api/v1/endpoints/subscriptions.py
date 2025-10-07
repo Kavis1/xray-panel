@@ -41,18 +41,19 @@ def generate_subscription_links(user: User, inbounds: List[Inbound], username_ta
             if proxy_type_map[proxy.type.upper()] != inbound.type.lower():
                 continue
             
-            # Generate link based on type
-            if proxy.type == "VLESS" and proxy.vless_uuid:
+            # Generate link based on type (case-insensitive)
+            proxy_type_upper = proxy.type.upper()
+            if proxy_type_upper == "VLESS" and proxy.vless_uuid:
                 link = generate_vless_link(proxy, inbound, server, username_tag)
-            elif proxy.type == "VMESS" and proxy.vmess_uuid:
+            elif proxy_type_upper == "VMESS" and proxy.vmess_uuid:
                 link = generate_vmess_link(proxy, inbound, server, username_tag)
-            elif proxy.type == "TROJAN" and proxy.trojan_password:
+            elif proxy_type_upper == "TROJAN" and proxy.trojan_password:
                 link = generate_trojan_link(proxy, inbound, server, username_tag)
-            elif proxy.type == "SHADOWSOCKS" and proxy.ss_password:
+            elif proxy_type_upper == "SHADOWSOCKS" and proxy.ss_password:
                 link = generate_ss_link(proxy, inbound, server, username_tag)
-            elif proxy.type == "HYSTERIA" and proxy.vmess_uuid:
+            elif proxy_type_upper == "HYSTERIA" and proxy.vmess_uuid:
                 link = generate_hysteria_link(proxy, inbound, server, username_tag)
-            elif proxy.type == "HYSTERIA2" and proxy.vmess_uuid:
+            elif proxy_type_upper == "HYSTERIA2" and proxy.vmess_uuid:
                 link = generate_hysteria2_link(proxy, inbound, server, username_tag)
             else:
                 continue
