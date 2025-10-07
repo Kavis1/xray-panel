@@ -51,7 +51,7 @@ class NodeGRPCClient:
                     logger.warning(f"Failed to load SSL certs for {self.address}, falling back to insecure: {e}")
         
         # Fallback to insecure channel
-        return self._get_channel()
+        return grpc.aio.insecure_channel(self.address)
         
     async def start_xray(self, config: str, users: List[User]) -> Dict[str, Any]:
         """Start Xray on node with configuration and users"""
