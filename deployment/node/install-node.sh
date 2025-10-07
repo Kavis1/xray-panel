@@ -3,9 +3,9 @@
 set -e
 
 # VERSION INFO - Updated automatically
-SCRIPT_VERSION="v2.1.0"
-SCRIPT_DATE="2025-10-08 01:58 UTC"
-LAST_CHANGE="Added REST API server (Marzban-style) for reliable config sync"
+SCRIPT_VERSION="v2.1.1"
+SCRIPT_DATE="2025-10-08 02:00 UTC"
+LAST_CHANGE="Added port 8080 for REST API server"
 
 # Цвета
 RED='\033[0;31m'
@@ -354,7 +354,7 @@ echo -e "${GREEN}✓${NC} sing-box установлен (v${SINGBOX_VERSION})"
 
 # Открытие портов в файрволе
 echo -e "${YELLOW}[3.5/6]${NC} Открытие портов в firewall..."
-PORTS=(443 7443 8388 10080 50051)
+PORTS=(443 7443 8388 10080 50051 8080)
 
 if command -v ufw &> /dev/null; then
     for port in "${PORTS[@]}"; do
