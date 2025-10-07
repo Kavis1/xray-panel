@@ -91,11 +91,14 @@ export default function NodesPage() {
       const response = await nodesApi.generateSSL(name, address);
       const data = response.data;
       
+      // Combine all 3 parts: cert + key + CA (for install-node.sh)
+      const fullCert = `${data.client_certificate}\n${data.client_key}\n${data.ca_certificate}`;
+      
       setCreatedNodeSSL({
         name: data.name,
-        certificate: data.client_certificate,
-        key: data.client_key,
-        ca: data.ca_certificate,
+        certificate: fullCert,  // Combined cert
+        key: '',  // Not used
+        ca: '',   // Not used
       });
       setSSLModalOpened(true);
       
@@ -452,18 +455,17 @@ export default function NodesPage() {
       >
         <Stack gap="md">
           <Text size="sm" c="dimmed">
-            Copy this certificate and paste it during node installation. This single certificate contains everything needed for secure connection.
+            Copy this certificate and paste it into install-node.sh when prompted. It contains all 3 parts: Client Certificate + Private Key + CA Certificate.
           </Text>
           
           <div>
             <Group justify="space-between" mb={5}>
-              <Text size="sm" fw={500}>Client Certificate:</Text>
+              <Text size="sm" fw={500}>SSL Certificate (cert + key + CA):</Text>
               <Button
                 size="xs"
                 variant="light"
                 onClick={() => {
-                  const fullCert = `${createdNodeSSL?.certificate || ''}\n${createdNodeSSL?.key || ''}`;
-                  navigator.clipboard.writeText(fullCert);
+                  navigator.clipboard.writeText(createdNodeSSL?.certificate || '');
                   notifications.show({
                     message: 'Certificate copied to clipboard',
                     color: 'green',
@@ -475,10 +477,10 @@ export default function NodesPage() {
             </Group>
             <textarea
               readOnly
-              value={`${createdNodeSSL?.certificate || ''}\n${createdNodeSSL?.key || ''}`}
+              value={createdNodeSSL?.certificate || ''}
               style={{
                 width: '100%',
-                height: '200px',
+                height: '300px',
                 fontFamily: 'monospace',
                 fontSize: '11px',
                 padding: '8px',
