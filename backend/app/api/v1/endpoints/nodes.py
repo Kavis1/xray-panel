@@ -118,7 +118,35 @@ async def create_node(
     await db.commit()
     await db.refresh(new_node)
     
-    logger.info(f"Created node {new_node.id} ({new_node.name})")
+    # AUTOMATICALLY generate SSL certificates for the node
+    try:
+        import ipaddress
+        # Validate if address is IP
+        try:
+            ipaddress.ip_address(node_data.address)
+            node_ip = node_data.address
+        except ValueError:
+            # It's a domain, use as-is
+            node_ip = node_data.address
+        
+        certs = cert_manager.generate_node_certificate(
+            node_id=new_node.id,
+            node_name=new_node.name,
+            node_address=node_ip
+        )
+        
+        # Save SSL paths to database
+        new_node.ssl_cert = certs["cert_file"]
+        new_node.ssl_key = certs["key_file"]
+        new_node.ssl_ca = str(cert_manager.CA_CERT_FILE)
+        
+        await db.commit()
+        await db.refresh(new_node)
+        
+        logger.info(f"Created node {new_node.id} ({new_node.name}) with SSL")
+    except Exception as e:
+        logger.warning(f"Failed to generate SSL for node {new_node.id}: {e}")
+        logger.info(f"Created node {new_node.id} ({new_node.name}) WITHOUT SSL")
     
     return new_node
 
