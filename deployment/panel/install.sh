@@ -573,6 +573,21 @@ echo -e "${YELLOW}Логи:${NC}"
 echo -e "  journalctl -u xray-panel-api -f     ${BLUE}# Логи API${NC}"
 echo -e "  journalctl -u celery-worker -f      ${BLUE}# Логи сбора трафика${NC}"
 echo ""
+# Установка CLI утилиты
+echo ""
+echo "Установка xraypanel CLI..."
+curl -s "https://api.github.com/repos/Kavis1/xray-panel/contents/deployment/panel/xraypanel-cli.sh" | python3 -c "import sys, json, base64; print(base64.b64decode(json.load(sys.stdin)['content']).decode())" > /usr/local/bin/xraypanel 2>/dev/null || true
+chmod +x /usr/local/bin/xraypanel 2>/dev/null || true
+
+# Сохранить версию
+cd /root/panel
+git rev-parse --short HEAD 2>/dev/null > .version || echo "v1.0.0" > .version
+cd - > /dev/null
+
+echo ""
+echo -e "${GREEN}CLI установлен!${NC} Используйте команду: ${BLUE}xraypanel${NC}"
+echo ""
+
 echo -e "${YELLOW}Следующие шаги:${NC}"
 echo -e "  1. Зайдите на https://$DOMAIN"
 echo -e "  2. Войдите как admin / admin123"
