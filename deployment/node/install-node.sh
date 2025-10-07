@@ -3,9 +3,9 @@
 set -e
 
 # VERSION INFO - Updated automatically
-SCRIPT_VERSION="v2.0.2"
-SCRIPT_DATE="2025-10-08 01:40 UTC"
-LAST_CHANGE="Fixed ARM64 architecture support for protoc"
+SCRIPT_VERSION="v2.0.3"
+SCRIPT_DATE="2025-10-08 01:42 UTC"
+LAST_CHANGE="Fixed protoc reinstall for ARM64 nodes"
 
 # Цвета
 RED='\033[0;31m'
@@ -87,20 +87,34 @@ if [ "$UPDATE_MODE" = true ]; then
     
     echo -e "${BLUE}[3/3]${NC} Компиляция proto и пересборка..."
     
-    # Установить protoc если нет
-    if ! command -v protoc &> /dev/null; then
-        echo "  → Установка protoc..."
-        PROTOC_VERSION="25.1"
-        ARCH=$(uname -m)
-        if [ "$ARCH" = "x86_64" ]; then
-            PROTOC_ARCH="x86_64"
-        elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
-            PROTOC_ARCH="aarch_64"
-        else
-            echo -e "${RED}Неподдерживаемая архитектура: $ARCH${NC}"
-            exit 1
+    # Определить архитектуру
+    ARCH=$(uname -m)
+    if [ "$ARCH" = "x86_64" ]; then
+        PROTOC_ARCH="x86_64"
+    elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+        PROTOC_ARCH="aarch_64"
+    else
+        echo -e "${RED}Неподдерживаемая архитектура: $ARCH${NC}"
+        exit 1
+    fi
+    
+    # Проверить и переустановить protoc если архитектура не совпадает
+    NEED_REINSTALL=false
+    if command -v protoc &> /dev/null; then
+        # Проверить работает ли protoc
+        if ! protoc --version &> /dev/null; then
+            echo "  → Обнаружен неработающий protoc, переустановка..."
+            NEED_REINSTALL=true
+            rm -f /usr/local/bin/protoc
+            rm -rf /usr/local/include/google
         fi
-        
+    else
+        NEED_REINSTALL=true
+    fi
+    
+    if [ "$NEED_REINSTALL" = true ]; then
+        echo "  → Установка protoc для $ARCH..."
+        PROTOC_VERSION="25.1"
         cd /tmp
         wget -q "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-${PROTOC_ARCH}.zip"
         unzip -q -o "protoc-${PROTOC_VERSION}-linux-${PROTOC_ARCH}.zip" -d /usr/local
