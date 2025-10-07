@@ -3,9 +3,9 @@
 set -e
 
 # VERSION INFO - Updated automatically
-SCRIPT_VERSION="v2.0.0"
-SCRIPT_DATE="2025-10-07 20:10 UTC"
-LAST_CHANGE="Fixed CLI version comparison"
+SCRIPT_VERSION="v2.0.1"
+SCRIPT_DATE="2025-10-08 01:38 UTC"
+LAST_CHANGE="Added proto compilation and auto-restart support"
 
 # Цвета
 RED='\033[0;31m'
@@ -85,7 +85,38 @@ if [ "$UPDATE_MODE" = true ]; then
     cp /tmp/xray_config.backup xray_config.json 2>/dev/null || true
     cp /tmp/singbox_config.backup singbox_config.json 2>/dev/null || true
     
-    echo -e "${BLUE}[3/3]${NC} Пересборка Node Service..."
+    echo -e "${BLUE}[3/3]${NC} Компиляция proto и пересборка..."
+    
+    # Установить protoc если нет
+    if ! command -v protoc &> /dev/null; then
+        echo "  → Установка protoc..."
+        PROTOC_VERSION="25.1"
+        cd /tmp
+        wget -q "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip"
+        unzip -q -o "protoc-${PROTOC_VERSION}-linux-x86_64.zip" -d /usr/local
+        rm "protoc-${PROTOC_VERSION}-linux-x86_64.zip"
+    fi
+    
+    # Установить protoc плагины
+    echo "  → Установка protoc плагинов..."
+    /usr/local/go/bin/go install google.golang.org/protobuf/cmd/protoc-gen-go@latest >/dev/null 2>&1
+    /usr/local/go/bin/go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest >/dev/null 2>&1
+    
+    export PATH=$PATH:/root/go/bin:/usr/local/go/bin
+    
+    # Компилировать proto
+    echo "  → Компиляция proto файлов..."
+    cd $INSTALL_DIR
+    protoc --go_out=. --go_opt=paths=source_relative \
+        --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+        proto/node.proto || {
+        echo -e "${RED}Ошибка компиляции proto${NC}"
+        exit 1
+    }
+    
+    # Собрать
+    echo "  → Сборка бинарника..."
+    /usr/local/go/bin/go mod download >/dev/null 2>&1
     /usr/local/go/bin/go build -o xray-panel-node-new cmd/main.go || {
         echo -e "${RED}Ошибка сборки${NC}"
         exit 1
