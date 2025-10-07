@@ -67,9 +67,9 @@ async def get_user_proxies(
         
         proxies_list.append(proxy_dict)
     
-    # Generate subscription link
+    # Generate subscription link using token
     from app.core.config import settings
-    subscription_link = f"{settings.XRAY_SUBSCRIPTION_URL_PREFIX}/{user.username}"
+    subscription_link = f"{settings.XRAY_SUBSCRIPTION_URL_PREFIX}/{user.subscription_token}"
     
     return {
         "user_id": user.id,
