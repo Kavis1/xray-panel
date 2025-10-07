@@ -447,90 +447,56 @@ export default function NodesPage() {
       <Modal
         opened={sslModalOpened}
         onClose={() => setSSLModalOpened(false)}
-        title={`SSL Certificates for ${createdNodeSSL?.name || 'Node'}`}
-        size="xl"
+        title={`SSL Certificate for ${createdNodeSSL?.name || 'Node'}`}
+        size="lg"
       >
         <Stack gap="md">
           <Text size="sm" c="dimmed">
-            Save these SSL certificates and configure them on your node server. You will need them to establish secure mTLS connection with the panel.
+            Copy this certificate and paste it during node installation. This single certificate contains everything needed for secure connection.
           </Text>
           
           <div>
-            <Text size="sm" fw={500} mb={5}>CA Certificate (ca.pem):</Text>
-            <TextInput
+            <Group justify="space-between" mb={5}>
+              <Text size="sm" fw={500}>Client Certificate:</Text>
+              <Button
+                size="xs"
+                variant="light"
+                onClick={() => {
+                  const fullCert = `${createdNodeSSL?.certificate || ''}\n${createdNodeSSL?.key || ''}`;
+                  navigator.clipboard.writeText(fullCert);
+                  notifications.show({
+                    message: 'Certificate copied to clipboard',
+                    color: 'green',
+                  });
+                }}
+              >
+                📋 Copy Certificate
+              </Button>
+            </Group>
+            <textarea
               readOnly
-              value={createdNodeSSL?.ca || ''}
-              styles={{ input: { fontFamily: 'monospace', fontSize: '11px' } }}
-              rightSection={
-                <ActionIcon
-                  variant="subtle"
-                  onClick={() => {
-                    navigator.clipboard.writeText(createdNodeSSL?.ca || '');
-                    notifications.show({
-                      message: 'CA certificate copied to clipboard',
-                      color: 'green',
-                    });
-                  }}
-                >
-                  📋
-                </ActionIcon>
-              }
+              value={`${createdNodeSSL?.certificate || ''}\n${createdNodeSSL?.key || ''}`}
+              style={{
+                width: '100%',
+                height: '200px',
+                fontFamily: 'monospace',
+                fontSize: '11px',
+                padding: '8px',
+                border: '1px solid #dee2e6',
+                borderRadius: '4px',
+                resize: 'vertical',
+              }}
             />
           </div>
 
-          <div>
-            <Text size="sm" fw={500} mb={5}>Client Certificate (cert.pem):</Text>
-            <TextInput
-              readOnly
-              value={createdNodeSSL?.certificate || ''}
-              styles={{ input: { fontFamily: 'monospace', fontSize: '11px' } }}
-              rightSection={
-                <ActionIcon
-                  variant="subtle"
-                  onClick={() => {
-                    navigator.clipboard.writeText(createdNodeSSL?.certificate || '');
-                    notifications.show({
-                      message: 'Certificate copied to clipboard',
-                      color: 'green',
-                    });
-                  }}
-                >
-                  📋
-                </ActionIcon>
-              }
-            />
-          </div>
-
-          <div>
-            <Text size="sm" fw={500} mb={5}>Private Key (key.pem):</Text>
-            <TextInput
-              readOnly
-              value={createdNodeSSL?.key || ''}
-              styles={{ input: { fontFamily: 'monospace', fontSize: '11px' } }}
-              rightSection={
-                <ActionIcon
-                  variant="subtle"
-                  onClick={() => {
-                    navigator.clipboard.writeText(createdNodeSSL?.key || '');
-                    notifications.show({
-                      message: 'Private key copied to clipboard',
-                      color: 'green',
-                    });
-                  }}
-                >
-                  📋
-                </ActionIcon>
-              }
-            />
-          </div>
-
-          <Paper p="sm" withBorder>
-            <Text size="sm" fw={500} mb={5}>Installation Instructions:</Text>
+          <Paper p="sm" withBorder bg="blue.0">
+            <Text size="sm" fw={500} mb={5}>📋 Quick Setup:</Text>
             <Text size="xs" c="dimmed" style={{ whiteSpace: 'pre-line' }}>
-{`1. SSH to your node server
-2. Run: curl -sL https://raw.githubusercontent.com/Kavis1/xray-panel/main/deployment/node/install-node.sh | bash
-3. When prompted, paste the certificates from above
-4. The node will be automatically configured with SSL`}
+{`1. Copy the certificate above
+2. SSH to your node: ssh root@${createdNodeSSL?.name || 'your-server'}
+3. Save to file: nano /root/node-cert.pem
+4. Paste the certificate and save (Ctrl+X, Y, Enter)
+5. Use this certificate for your node setup`}
             </Text>
           </Paper>
 
