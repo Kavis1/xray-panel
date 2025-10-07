@@ -66,12 +66,17 @@ func (s *GRPCServer) Stop(ctx context.Context, req *pb.Empty) (*pb.BaseInfoRespo
 }
 
 func (s *GRPCServer) GetBaseInfo(ctx context.Context, req *pb.Empty) (*pb.BaseInfoResponse, error) {
+	log.Printf("[GetBaseInfo] Called from %v", ctx)
+	
 	version, _ := s.xrayManager.GetVersion()
+	isRunning := s.xrayManager.IsRunning()
+	
+	log.Printf("[GetBaseInfo] IsRunning returned: %v", isRunning)
 	
 	return &pb.BaseInfoResponse{
 		Version:      "1.0.0",
 		CoreType:     "xray",
-		Running:      s.xrayManager.IsRunning(),
+		Running:      isRunning,
 		XrayVersion:  version,
 		Uptime:       s.xrayManager.GetUptime(),
 		SessionId:    s.sessionID,
