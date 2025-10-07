@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -38,6 +39,19 @@ func startGRPCServer(cfg *config.Config, xrayMgr *xray.Manager, statsCol *stats.
 
 	var opts []grpc.ServerOption
 
+	// Add request logging interceptor
+	unaryInterceptor := func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		log.Printf("[gRPC] >>> Incoming: %s", info.FullMethod)
+		resp, err := handler(ctx, req)
+		if err != nil {
+			log.Printf("[gRPC] <<< Failed: %s - %v", info.FullMethod, err)
+		} else {
+			log.Printf("[gRPC] <<< Success: %s", info.FullMethod)
+		}
+		return resp, err
+	}
+	opts = append(opts, grpc.UnaryInterceptor(unaryInterceptor))
+
 	if cfg.SSLEnabled {
 		creds, err := credentials.NewServerTLSFromFile(cfg.SSLCertFile, cfg.SSLKeyFile)
 		if err != nil {
@@ -59,5 +73,6 @@ func startGRPCServer(cfg *config.Config, xrayMgr *xray.Manager, statsCol *stats.
 		protocol = "gRPC+TLS"
 	}
 	log.Printf("Node service starting on %s:%d (%s)", cfg.NodeHost, cfg.ServicePort, protocol)
+	log.Printf("Waiting for requests...")
 	return grpcServer.Serve(lis)
 }
