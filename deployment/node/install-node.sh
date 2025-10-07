@@ -3,9 +3,9 @@
 set -e
 
 # VERSION INFO - Updated automatically
-SCRIPT_VERSION="v1.1.1"
-SCRIPT_DATE="2025-10-07 20:05 UTC"
-LAST_CHANGE="Improved CLI info display"
+SCRIPT_VERSION="v1.1.2"
+SCRIPT_DATE="2025-10-07 20:10 UTC"
+LAST_CHANGE="Fixed CLI version comparison"
 
 # Цвета
 RED='\033[0;31m'
