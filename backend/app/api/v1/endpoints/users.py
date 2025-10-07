@@ -56,9 +56,17 @@ async def create_user(
             detail="Username already exists",
         )
     
+    # Generate unique subscription token
+    while True:
+        subscription_token = generate_subscription_token()
+        token_check = await db.execute(select(User).where(User.subscription_token == subscription_token))
+        if token_check.scalar_one_or_none() is None:
+            break
+    
     new_user = User(
         username=user_data.username,
         email=user_data.email,
+        subscription_token=subscription_token,
         status=user_data.status.value,
         traffic_limit_bytes=user_data.traffic_limit_bytes,
         traffic_limit_strategy=user_data.traffic_limit_strategy.value,
