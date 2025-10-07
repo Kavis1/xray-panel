@@ -90,7 +90,7 @@ async def create_user(
         # Создаем VLESS proxy по умолчанию
         default_proxy = UserProxy(
             user_id=new_user.id,
-            type="VLESS",
+            type="vless",
             vless_uuid=str(uuid_lib.uuid4()),
             vless_flow="xtls-rprx-vision",
         )
@@ -99,7 +99,7 @@ async def create_user(
         for proxy_data in user_data.proxies:
             proxy = UserProxy(
                 user_id=new_user.id,
-                type=proxy_data.type.value,
+                type=proxy_data.type.value.lower(),
                 vmess_uuid=proxy_data.vmess_uuid or (str(uuid_lib.uuid4()) if proxy_data.type.value in ["VMESS", "VLESS"] else None),
                 vless_uuid=proxy_data.vless_uuid,
                 vless_flow=proxy_data.vless_flow,
@@ -176,6 +176,19 @@ async def update_user(
         )
     
     update_data = user_data.model_dump(exclude_unset=True)
+    
+    # Validate: cannot activate user without inbounds
+    if "status" in update_data and update_data["status"] == UserStatus.ACTIVE:
+        inbound_check = await db.execute(
+            select(func.count(UserInbound.id)).where(UserInbound.user_id == user_id)
+        )
+        inbound_count = inbound_check.scalar()
+        
+        if inbound_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot activate user without inbounds. Please assign at least one inbound first.",
+            )
     
     # Remove password if empty or less than 6 characters
     if "password" in update_data:
