@@ -1,6 +1,7 @@
 """SSL Certificate management for node authentication"""
 import os
 import logging
+import ipaddress
 from datetime import datetime, timedelta
 from cryptography import x509
 from cryptography.x509.oid import NameOID, ExtendedKeyUsageOID
@@ -169,8 +170,7 @@ class CertificateManager:
             )
             .add_extension(
                 x509.SubjectAlternativeName([
-                    x509.DNSName(node_name),
-                    x509.IPAddress(node_address) if ":" not in node_address else x509.DNSName(node_address),
+                    x509.IPAddress(ipaddress.ip_address(node_address)),
                 ]),
                 critical=False,
             )
