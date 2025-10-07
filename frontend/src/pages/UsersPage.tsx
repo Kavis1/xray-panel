@@ -176,7 +176,7 @@ export default function UsersPage() {
   const handleManageInbounds = async (user: User) => {
     try {
       // Load available inbounds
-      const inboundsResponse = await fetch(`${import.meta.env.VITE_API_URL}/inbounds/`, {
+      const inboundsResponse = await fetch(`/api/v1/inbounds/`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
         },

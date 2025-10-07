@@ -30,7 +30,7 @@ export default function DashboardPage() {
         : 0;
       const totalInbounds = Array.isArray(inboundsRes.data) 
         ? inboundsRes.data.length 
-        : inboundsRes.data.items?.length || 0;
+        : (inboundsRes.data as any).items?.length || 0;
       
       // Calculate total traffic from users
       const totalTraffic = usersRes.data.items?.reduce((sum: number, user: any) => 
