@@ -3,9 +3,9 @@
 set -e
 
 # VERSION INFO - Updated automatically
-SCRIPT_VERSION="352c919"
-SCRIPT_DATE="2025-10-07 19:35 UTC"
-LAST_CHANGE="CRITICAL FIX: Binary path corrected"
+SCRIPT_VERSION="arm64-fix"
+SCRIPT_DATE="2025-10-07 19:40 UTC"
+LAST_CHANGE="Add ARM64 architecture support"
 
 # Цвета
 RED='\033[0;31m'
