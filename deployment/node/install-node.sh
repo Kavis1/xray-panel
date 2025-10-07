@@ -3,9 +3,9 @@
 set -e
 
 # VERSION INFO - Updated automatically
-SCRIPT_VERSION="b9d7e43"
-SCRIPT_DATE="2025-10-07 19:10 UTC"
-LAST_CHANGE="Add diagnostics: API key, gRPC port, code check"
+SCRIPT_VERSION="a8a4b66"
+SCRIPT_DATE="2025-10-07 19:20 UTC"
+LAST_CHANGE="Full gRPC + IsRunning logging"
 
 # Цвета
 RED='\033[0;31m'
