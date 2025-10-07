@@ -185,9 +185,9 @@ class XrayConfigBuilder:
                 stream_settings["realitySettings"] = {
                     "show": False,
                     "dest": reality_cfg.get("dest", "www.microsoft.com:443"),
-                    "serverNames": reality_cfg.get("server_names", ["www.microsoft.com"]),
-                    "privateKey": reality_cfg.get("private_key", ""),
-                    "shortIds": reality_cfg.get("short_ids", [])
+                    "serverNames": reality_cfg.get("serverNames", ["www.microsoft.com"]),
+                    "privateKey": reality_cfg.get("privateKey", ""),
+                    "shortIds": reality_cfg.get("shortIds", [])
                 }
                 if "spiderX" in reality_cfg:
                     stream_settings["realitySettings"]["spiderX"] = reality_cfg["spiderX"]
@@ -232,9 +232,9 @@ class XrayConfigBuilder:
             stream_settings["realitySettings"] = {
                 "show": False,
                 "dest": reality_cfg.get("dest", "www.microsoft.com:443"),
-                "serverNames": reality_cfg.get("server_names", ["www.microsoft.com"]),
-                "privateKey": reality_cfg.get("private_key", ""),
-                "shortIds": reality_cfg.get("short_ids", [])
+                "serverNames": reality_cfg.get("serverNames", ["www.microsoft.com"]),
+                "privateKey": reality_cfg.get("privateKey", ""),
+                "shortIds": reality_cfg.get("shortIds", [])
             }
             if "fingerprint" in reality_cfg:
                 stream_settings["realitySettings"]["fingerprint"] = reality_cfg["fingerprint"]
