@@ -91,22 +91,39 @@ async def collect_node_stats_async():
                 node.is_connected = True
                 node.xray_version = xray_version
                 
-                # Collect node traffic - sum of all users on this node
-                # Node traffic = sum of all user traffic (sing-box already included in user totals)
+                # Collect node traffic - sum of users who use inbounds on this node
+                # Node traffic = sum of user traffic for users using this node's inbounds
                 if xray_running:
-                    # Get all users on this node
-                    users_result = await session.execute(
-                        select(User).where(User.status == UserStatus.ACTIVE.value)
+                    # Get all inbounds that belong to this node
+                    from app.models.inbound import Inbound
+                    inbounds_result = await session.execute(
+                        select(Inbound).where(Inbound.node_ids.contains([node.id]))
                     )
-                    node_users = users_result.scalars().all()
+                    node_inbounds = inbounds_result.scalars().all()
+                    node_inbound_ids = [inbound.id for inbound in node_inbounds]
                     
-                    # Sum all user traffic (already includes both Xray and sing-box)
-                    node_total = sum(u.traffic_used_bytes for u in node_users if u.traffic_used_bytes)
-                    
-                    node.traffic_used_bytes = node_total
-                    
-                    if node_total > 0:
-                        logger.info(f"  Node traffic: {node_total:,} bytes ({node_total/1024/1024:.2f} MB)")
+                    if node_inbound_ids:
+                        # Get users who have these inbounds
+                        users_result = await session.execute(
+                            select(User).where(User.status == UserStatus.ACTIVE.value)
+                        )
+                        all_users = users_result.scalars().all()
+                        
+                        # Filter users who have at least one inbound from this node
+                        node_users = [
+                            user for user in all_users
+                            if user.inbounds and any(inbound.id in node_inbound_ids for inbound in user.inbounds)
+                        ]
+                        
+                        # Sum traffic only for users on this node
+                        node_total = sum(u.traffic_used_bytes for u in node_users if u.traffic_used_bytes)
+                        node.traffic_used_bytes = node_total
+                        
+                        if node_total > 0:
+                            logger.info(f"  Node traffic: {node_total:,} bytes ({node_total/1024/1024:.2f} MB) from {len(node_users)} users")
+                    else:
+                        node.traffic_used_bytes = 0
+                        logger.info(f"  Node has no inbounds, traffic set to 0")
                 
                 logger.info(f"✅ Node {node.name}: Xray={xray_running}, Version={xray_version}")
                 

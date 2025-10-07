@@ -73,6 +73,10 @@ export interface Node {
   uptime_seconds?: number;
   created_at: string;
   updated_at: string;
+  // SSL certificates (only returned when creating new node)
+  ssl_client_certificate?: string;
+  ssl_client_key?: string;
+  ssl_ca_certificate?: string;
 }
 
 export interface Inbound {
