@@ -3,9 +3,9 @@
 set -e
 
 # VERSION INFO - Updated automatically
-SCRIPT_VERSION="f8c4d21"
-SCRIPT_DATE="2025-10-07 19:05 UTC"
-LAST_CHANGE="Fix: Prioritize systemctl check + --quiet flag"
+SCRIPT_VERSION="b9d7e43"
+SCRIPT_DATE="2025-10-07 19:10 UTC"
+LAST_CHANGE="Add diagnostics: API key, gRPC port, code check"
 
 # Цвета
 RED='\033[0;31m'
@@ -114,7 +114,39 @@ if [ "$UPDATE_MODE" = true ]; then
     systemctl status singbox-node --no-pager -l | head -3
     systemctl status xray-panel-node --no-pager -l | head -3
     echo ""
+    
+    echo -e "${YELLOW}=== Диагностика соединения ===${NC}"
+    echo ""
+    
+    # Проверка API ключа
+    echo -n "API Key: "
+    grep "^API_KEY=" $INSTALL_DIR/.env | cut -d'=' -f2 | head -c 20
+    echo "..."
+    
+    # Проверка gRPC порта
+    echo -n "gRPC Port 50051: "
+    if ss -tlnp 2>/dev/null | grep -q ":50051" || netstat -tlnp 2>/dev/null | grep -q ":50051"; then
+        echo -e "${GREEN}Listening ✓${NC}"
+    else
+        echo -e "${RED}NOT Listening ✗${NC}"
+    fi
+    
+    # Проверка IsRunning в коде
+    echo -n "IsRunning check: "
+    if grep -q "Primary check: systemd" $INSTALL_DIR/pkg/xray/manager.go 2>/dev/null; then
+        echo -e "${GREEN}Updated ✓${NC}"
+    else
+        echo -e "${YELLOW}Old version${NC}"
+    fi
+    
+    echo ""
     echo -e "${GREEN}Node Service обновлён и перезапущен!${NC}"
+    echo ""
+    echo -e "${BLUE}Если панель показывает 'Stopped', проверьте:${NC}"
+    echo -e "  1. API_KEY совпадает с панелью"
+    echo -e "  2. Логи: journalctl -u xray-panel-node -n 30"
+    echo -e "  3. Соединение к панели: ping <PANEL_IP>"
+    echo ""
     
     exit 0
 fi
