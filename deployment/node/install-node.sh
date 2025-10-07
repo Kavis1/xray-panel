@@ -209,24 +209,62 @@ echo -e "${GREEN}✓${NC} Xray-core установлен ($(xray version | head 
 echo -e "${YELLOW}[3/6]${NC} Установка sing-box..."
 SINGBOX_VERSION="1.12.9"
 
+# Определить архитектуру для sing-box
+ARCH=$(uname -m)
+case $ARCH in
+    x86_64)
+        SINGBOX_ARCH="amd64"
+        ;;
+    aarch64|arm64)
+        SINGBOX_ARCH="arm64"
+        ;;
+    armv7l)
+        SINGBOX_ARCH="armv7"
+        ;;
+    *)
+        echo -e "${RED}Неподдерживаемая архитектура: $ARCH${NC}"
+        exit 1
+        ;;
+esac
+
 # Остановить если запущен
 systemctl stop singbox-node 2>/dev/null || true
 
-wget -q "https://github.com/SagerNet/sing-box/releases/download/v${SINGBOX_VERSION}/sing-box-${SINGBOX_VERSION}-linux-amd64.tar.gz"
-tar -xzf "sing-box-${SINGBOX_VERSION}-linux-amd64.tar.gz"
-cp "sing-box-${SINGBOX_VERSION}-linux-amd64/sing-box" /usr/bin/
+wget -q "https://github.com/SagerNet/sing-box/releases/download/v${SINGBOX_VERSION}/sing-box-${SINGBOX_VERSION}-linux-${SINGBOX_ARCH}.tar.gz"
+tar -xzf "sing-box-${SINGBOX_VERSION}-linux-${SINGBOX_ARCH}.tar.gz"
+cp "sing-box-${SINGBOX_VERSION}-linux-${SINGBOX_ARCH}/sing-box" /usr/bin/
 chmod +x /usr/bin/sing-box
-rm -rf "sing-box-${SINGBOX_VERSION}-linux-amd64"*
+rm -rf "sing-box-${SINGBOX_VERSION}-linux-${SINGBOX_ARCH}"*
 echo -e "${GREEN}✓${NC} sing-box установлен (v${SINGBOX_VERSION})"
 
 # Установка Go (для сборки Node Service)
 echo -e "${YELLOW}[4/6]${NC} Установка Go..."
-GO_VERSION="1.21.5"
+GO_VERSION="1.23.1"
+
+# Определить архитектуру
+ARCH=$(uname -m)
+case $ARCH in
+    x86_64)
+        GO_ARCH="amd64"
+        ;;
+    aarch64|arm64)
+        GO_ARCH="arm64"
+        ;;
+    armv7l)
+        GO_ARCH="armv6l"
+        ;;
+    *)
+        echo -e "${RED}Неподдерживаемая архитектура: $ARCH${NC}"
+        exit 1
+        ;;
+esac
+
 if ! command -v go &> /dev/null; then
-    wget -q "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz"
+    echo "Скачивание Go ${GO_VERSION} для ${GO_ARCH}..."
+    wget -q "https://go.dev/dl/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz"
     rm -rf /usr/local/go
-    tar -C /usr/local -xzf "go${GO_VERSION}.linux-amd64.tar.gz"
-    rm "go${GO_VERSION}.linux-amd64.tar.gz"
+    tar -C /usr/local -xzf "go${GO_VERSION}.linux-${GO_ARCH}.tar.gz"
+    rm "go${GO_VERSION}.linux-${GO_ARCH}.tar.gz"
     echo 'export PATH=$PATH:/usr/local/go/bin' >> /etc/profile
     export PATH=$PATH:/usr/local/go/bin
 fi
