@@ -101,6 +101,14 @@ if [ "$UPDATE_MODE" = true ]; then
     # Запустить сервис
     systemctl start xray-panel-node
     
+    # Установка/обновление CLI утилиты
+    echo "Обновление xraynode CLI..."
+    curl -s "https://api.github.com/repos/Kavis1/xray-panel/contents/deployment/node/xraynode-cli.sh" | python3 -c "import sys, json, base64; print(base64.b64decode(json.load(sys.stdin)['content']).decode())" > /usr/local/bin/xraynode 2>/dev/null || true
+    chmod +x /usr/local/bin/xraynode 2>/dev/null || true
+    
+    # Обновить версию
+    echo "$SCRIPT_VERSION" > .version
+    
     # Очистка
     rm -rf /tmp/temp_node_update /tmp/*.backup
     
