@@ -2,7 +2,7 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-from . import node_pb2 as proto_dot_node__pb2
+from app.grpc_gen import node_pb2 as node__pb2
 
 
 class NodeServiceStub(object):
@@ -17,48 +17,53 @@ class NodeServiceStub(object):
         """
         self.Start = channel.unary_unary(
                 '/node.NodeService/Start',
-                request_serializer=proto_dot_node__pb2.Backend.SerializeToString,
-                response_deserializer=proto_dot_node__pb2.BaseInfoResponse.FromString,
+                request_serializer=node__pb2.Backend.SerializeToString,
+                response_deserializer=node__pb2.BaseInfoResponse.FromString,
                 )
         self.Stop = channel.unary_unary(
                 '/node.NodeService/Stop',
-                request_serializer=proto_dot_node__pb2.Empty.SerializeToString,
-                response_deserializer=proto_dot_node__pb2.BaseInfoResponse.FromString,
+                request_serializer=node__pb2.Empty.SerializeToString,
+                response_deserializer=node__pb2.BaseInfoResponse.FromString,
                 )
         self.GetBaseInfo = channel.unary_unary(
                 '/node.NodeService/GetBaseInfo',
-                request_serializer=proto_dot_node__pb2.Empty.SerializeToString,
-                response_deserializer=proto_dot_node__pb2.BaseInfoResponse.FromString,
+                request_serializer=node__pb2.Empty.SerializeToString,
+                response_deserializer=node__pb2.BaseInfoResponse.FromString,
                 )
         self.GetLogs = channel.unary_stream(
                 '/node.NodeService/GetLogs',
-                request_serializer=proto_dot_node__pb2.Empty.SerializeToString,
-                response_deserializer=proto_dot_node__pb2.Log.FromString,
+                request_serializer=node__pb2.Empty.SerializeToString,
+                response_deserializer=node__pb2.Log.FromString,
                 )
         self.SyncUser = channel.unary_unary(
                 '/node.NodeService/SyncUser',
-                request_serializer=proto_dot_node__pb2.User.SerializeToString,
-                response_deserializer=proto_dot_node__pb2.SyncResponse.FromString,
+                request_serializer=node__pb2.User.SerializeToString,
+                response_deserializer=node__pb2.SyncResponse.FromString,
                 )
         self.SyncUsers = channel.unary_unary(
                 '/node.NodeService/SyncUsers',
-                request_serializer=proto_dot_node__pb2.Users.SerializeToString,
-                response_deserializer=proto_dot_node__pb2.SyncResponse.FromString,
+                request_serializer=node__pb2.Users.SerializeToString,
+                response_deserializer=node__pb2.SyncResponse.FromString,
                 )
         self.GetStats = channel.unary_unary(
                 '/node.NodeService/GetStats',
-                request_serializer=proto_dot_node__pb2.StatsRequest.SerializeToString,
-                response_deserializer=proto_dot_node__pb2.StatsResponse.FromString,
+                request_serializer=node__pb2.StatsRequest.SerializeToString,
+                response_deserializer=node__pb2.StatsResponse.FromString,
                 )
         self.GetSystemStats = channel.unary_unary(
                 '/node.NodeService/GetSystemStats',
-                request_serializer=proto_dot_node__pb2.Empty.SerializeToString,
-                response_deserializer=proto_dot_node__pb2.SystemStatsResponse.FromString,
+                request_serializer=node__pb2.Empty.SerializeToString,
+                response_deserializer=node__pb2.SystemStatsResponse.FromString,
                 )
         self.GetOnlineUsers = channel.unary_unary(
                 '/node.NodeService/GetOnlineUsers',
-                request_serializer=proto_dot_node__pb2.Empty.SerializeToString,
-                response_deserializer=proto_dot_node__pb2.OnlineUsersResponse.FromString,
+                request_serializer=node__pb2.Empty.SerializeToString,
+                response_deserializer=node__pb2.OnlineUsersResponse.FromString,
+                )
+        self.ExecuteCommand = channel.unary_unary(
+                '/node.NodeService/ExecuteCommand',
+                request_serializer=node__pb2.CommandRequest.SerializeToString,
+                response_deserializer=node__pb2.CommandResponse.FromString,
                 )
 
 
@@ -120,53 +125,64 @@ class NodeServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ExecuteCommand(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_NodeServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'Start': grpc.unary_unary_rpc_method_handler(
                     servicer.Start,
-                    request_deserializer=proto_dot_node__pb2.Backend.FromString,
-                    response_serializer=proto_dot_node__pb2.BaseInfoResponse.SerializeToString,
+                    request_deserializer=node__pb2.Backend.FromString,
+                    response_serializer=node__pb2.BaseInfoResponse.SerializeToString,
             ),
             'Stop': grpc.unary_unary_rpc_method_handler(
                     servicer.Stop,
-                    request_deserializer=proto_dot_node__pb2.Empty.FromString,
-                    response_serializer=proto_dot_node__pb2.BaseInfoResponse.SerializeToString,
+                    request_deserializer=node__pb2.Empty.FromString,
+                    response_serializer=node__pb2.BaseInfoResponse.SerializeToString,
             ),
             'GetBaseInfo': grpc.unary_unary_rpc_method_handler(
                     servicer.GetBaseInfo,
-                    request_deserializer=proto_dot_node__pb2.Empty.FromString,
-                    response_serializer=proto_dot_node__pb2.BaseInfoResponse.SerializeToString,
+                    request_deserializer=node__pb2.Empty.FromString,
+                    response_serializer=node__pb2.BaseInfoResponse.SerializeToString,
             ),
             'GetLogs': grpc.unary_stream_rpc_method_handler(
                     servicer.GetLogs,
-                    request_deserializer=proto_dot_node__pb2.Empty.FromString,
-                    response_serializer=proto_dot_node__pb2.Log.SerializeToString,
+                    request_deserializer=node__pb2.Empty.FromString,
+                    response_serializer=node__pb2.Log.SerializeToString,
             ),
             'SyncUser': grpc.unary_unary_rpc_method_handler(
                     servicer.SyncUser,
-                    request_deserializer=proto_dot_node__pb2.User.FromString,
-                    response_serializer=proto_dot_node__pb2.SyncResponse.SerializeToString,
+                    request_deserializer=node__pb2.User.FromString,
+                    response_serializer=node__pb2.SyncResponse.SerializeToString,
             ),
             'SyncUsers': grpc.unary_unary_rpc_method_handler(
                     servicer.SyncUsers,
-                    request_deserializer=proto_dot_node__pb2.Users.FromString,
-                    response_serializer=proto_dot_node__pb2.SyncResponse.SerializeToString,
+                    request_deserializer=node__pb2.Users.FromString,
+                    response_serializer=node__pb2.SyncResponse.SerializeToString,
             ),
             'GetStats': grpc.unary_unary_rpc_method_handler(
                     servicer.GetStats,
-                    request_deserializer=proto_dot_node__pb2.StatsRequest.FromString,
-                    response_serializer=proto_dot_node__pb2.StatsResponse.SerializeToString,
+                    request_deserializer=node__pb2.StatsRequest.FromString,
+                    response_serializer=node__pb2.StatsResponse.SerializeToString,
             ),
             'GetSystemStats': grpc.unary_unary_rpc_method_handler(
                     servicer.GetSystemStats,
-                    request_deserializer=proto_dot_node__pb2.Empty.FromString,
-                    response_serializer=proto_dot_node__pb2.SystemStatsResponse.SerializeToString,
+                    request_deserializer=node__pb2.Empty.FromString,
+                    response_serializer=node__pb2.SystemStatsResponse.SerializeToString,
             ),
             'GetOnlineUsers': grpc.unary_unary_rpc_method_handler(
                     servicer.GetOnlineUsers,
-                    request_deserializer=proto_dot_node__pb2.Empty.FromString,
-                    response_serializer=proto_dot_node__pb2.OnlineUsersResponse.SerializeToString,
+                    request_deserializer=node__pb2.Empty.FromString,
+                    response_serializer=node__pb2.OnlineUsersResponse.SerializeToString,
+            ),
+            'ExecuteCommand': grpc.unary_unary_rpc_method_handler(
+                    servicer.ExecuteCommand,
+                    request_deserializer=node__pb2.CommandRequest.FromString,
+                    response_serializer=node__pb2.CommandResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -191,8 +207,8 @@ class NodeService(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/node.NodeService/Start',
-            proto_dot_node__pb2.Backend.SerializeToString,
-            proto_dot_node__pb2.BaseInfoResponse.FromString,
+            node__pb2.Backend.SerializeToString,
+            node__pb2.BaseInfoResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -208,8 +224,8 @@ class NodeService(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/node.NodeService/Stop',
-            proto_dot_node__pb2.Empty.SerializeToString,
-            proto_dot_node__pb2.BaseInfoResponse.FromString,
+            node__pb2.Empty.SerializeToString,
+            node__pb2.BaseInfoResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -225,8 +241,8 @@ class NodeService(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/node.NodeService/GetBaseInfo',
-            proto_dot_node__pb2.Empty.SerializeToString,
-            proto_dot_node__pb2.BaseInfoResponse.FromString,
+            node__pb2.Empty.SerializeToString,
+            node__pb2.BaseInfoResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -242,8 +258,8 @@ class NodeService(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_stream(request, target, '/node.NodeService/GetLogs',
-            proto_dot_node__pb2.Empty.SerializeToString,
-            proto_dot_node__pb2.Log.FromString,
+            node__pb2.Empty.SerializeToString,
+            node__pb2.Log.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -259,8 +275,8 @@ class NodeService(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/node.NodeService/SyncUser',
-            proto_dot_node__pb2.User.SerializeToString,
-            proto_dot_node__pb2.SyncResponse.FromString,
+            node__pb2.User.SerializeToString,
+            node__pb2.SyncResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -276,8 +292,8 @@ class NodeService(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/node.NodeService/SyncUsers',
-            proto_dot_node__pb2.Users.SerializeToString,
-            proto_dot_node__pb2.SyncResponse.FromString,
+            node__pb2.Users.SerializeToString,
+            node__pb2.SyncResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -293,8 +309,8 @@ class NodeService(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/node.NodeService/GetStats',
-            proto_dot_node__pb2.StatsRequest.SerializeToString,
-            proto_dot_node__pb2.StatsResponse.FromString,
+            node__pb2.StatsRequest.SerializeToString,
+            node__pb2.StatsResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -310,8 +326,8 @@ class NodeService(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/node.NodeService/GetSystemStats',
-            proto_dot_node__pb2.Empty.SerializeToString,
-            proto_dot_node__pb2.SystemStatsResponse.FromString,
+            node__pb2.Empty.SerializeToString,
+            node__pb2.SystemStatsResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -327,7 +343,24 @@ class NodeService(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/node.NodeService/GetOnlineUsers',
-            proto_dot_node__pb2.Empty.SerializeToString,
-            proto_dot_node__pb2.OnlineUsersResponse.FromString,
+            node__pb2.Empty.SerializeToString,
+            node__pb2.OnlineUsersResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def ExecuteCommand(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/node.NodeService/ExecuteCommand',
+            node__pb2.CommandRequest.SerializeToString,
+            node__pb2.CommandResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

@@ -37,16 +37,19 @@ func (m *Manager) Start(backend types.Backend) error {
 		return fmt.Errorf("xray is already running")
 	}
 
-	configFile := "/tmp/xray_config.json"
+	log.Printf("[Start] Writing config to /opt/xray-panel-node/xray_config.json")
+	
+	// Write config to permanent location
+	configFile := "/opt/xray-panel-node/xray_config.json"
 	if err := os.WriteFile(configFile, []byte(backend.Config), 0644); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
 
-	m.cmd = exec.Command(m.cfg.XrayExecutablePath, "run", "-config", configFile)
-	m.cmd.Env = append(os.Environ(), fmt.Sprintf("XRAY_LOCATION_ASSET=%s", m.cfg.XrayAssetsPath))
-
-	if err := m.cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start xray: %w", err)
+	// Start via systemd
+	log.Printf("[Start] Starting xray-node via systemd")
+	cmd := exec.Command("/usr/bin/systemctl", "start", "xray-node")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to start xray via systemd: %w", err)
 	}
 
 	m.running = true
@@ -54,6 +57,7 @@ func (m *Manager) Start(backend types.Backend) error {
 	m.config = backend.Config
 	m.users = backend.Users
 
+	log.Printf("[Start] Xray started successfully")
 	return nil
 }
 
@@ -61,26 +65,38 @@ func (m *Manager) Stop() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// Try to stop via systemd first
-	cmd := exec.Command("/usr/bin/systemctl", "stop", "xray-panel")
+	log.Printf("[Stop] Stopping Xray...")
+	
+	// Try to stop via systemd (xray-node service)
+	cmd := exec.Command("/usr/bin/systemctl", "stop", "xray-node")
 	if err := cmd.Run(); err == nil {
-		log.Printf("[Stop] Stopped xray via systemd")
+		log.Printf("[Stop] Stopped xray-node via systemd")
 		m.running = false
 		return nil
 	}
 
-	// Fallback to killing process
+	// Fallback: try xray-panel service name
+	cmd = exec.Command("/usr/bin/systemctl", "stop", "xray-panel")
+	if err := cmd.Run(); err == nil {
+		log.Printf("[Stop] Stopped xray-panel via systemd")
+		m.running = false
+		return nil
+	}
+
+	// Fallback to killing process if we started it
 	if m.cmd != nil && m.cmd.Process != nil {
 		if err := m.cmd.Process.Kill(); err != nil {
 			return fmt.Errorf("failed to stop xray: %w", err)
 		}
+		log.Printf("[Stop] Killed xray process")
 		m.running = false
 		return nil
 	}
 
-	// Last resort: pkill
-	cmd = exec.Command("/usr/bin/pkill", "-9", "xray")
+	// Last resort: pkill xray (but not xray-panel-node!)
+	cmd = exec.Command("/usr/bin/pkill", "-9", "-f", "^xray run")
 	_ = cmd.Run()
+	log.Printf("[Stop] Attempted pkill xray")
 	
 	m.running = false
 	return nil

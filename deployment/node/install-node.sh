@@ -3,9 +3,9 @@
 set -e
 
 # VERSION INFO - Updated automatically
-SCRIPT_VERSION="v2.0.3"
-SCRIPT_DATE="2025-10-08 01:42 UTC"
-LAST_CHANGE="Fixed protoc reinstall for ARM64 nodes"
+SCRIPT_VERSION="v2.0.4"
+SCRIPT_DATE="2025-10-08 01:49 UTC"
+LAST_CHANGE="Fixed Stop() killing node service + Start() uses systemd"
 
 # Цвета
 RED='\033[0;31m'
