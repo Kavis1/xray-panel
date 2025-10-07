@@ -79,6 +79,12 @@ async def create_user(
     db.add(new_user)
     await db.flush()
     
+    # Normalize proxy types to lowercase
+    if user_data.proxies:
+        for proxy_data in user_data.proxies:
+            if proxy_data.type:
+                proxy_data.type = ProxyType(proxy_data.type.value.lower())
+    
     # Автоматически создаем proxy если не указаны
     if not user_data.proxies or len(user_data.proxies) == 0:
         # Создаем VLESS proxy по умолчанию
