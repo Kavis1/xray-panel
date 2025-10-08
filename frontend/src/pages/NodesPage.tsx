@@ -41,6 +41,7 @@ export default function NodesPage() {
     initialValues: {
       name: '',
       address: '',
+      domain: '',
       api_port: 50051,
       api_protocol: 'grpc',
       api_key: '',
@@ -276,7 +277,16 @@ export default function NodesPage() {
                     <Badge size="xs" ml="xs">{node.country_code}</Badge>
                   )}
                 </Table.Td>
-                <Table.Td>{node.address}:{node.api_port}</Table.Td>
+                <Table.Td>
+                  {node.domain ? (
+                    <>
+                      <Text size="sm">{node.domain}</Text>
+                      <Text size="xs" c="dimmed">{node.address}:{node.api_port}</Text>
+                    </>
+                  ) : (
+                    <Text size="sm">{node.address}:{node.api_port}</Text>
+                  )}
+                </Table.Td>
                 <Table.Td>
                   <Group gap="xs">
                     <Badge color={node.is_enabled ? 'green' : 'gray'}>
@@ -350,9 +360,15 @@ export default function NodesPage() {
             />
             <TextInput
               label="Address"
-              placeholder="Enter node address (IP or domain)"
+              placeholder="Enter node IP address"
               required
               {...form.getInputProps('address')}
+            />
+            <TextInput
+              label="Domain (Optional)"
+              placeholder="e.g., node1.example.com"
+              description="Required for TLS protocols (Trojan, Hysteria2, VLESS Reality)"
+              {...form.getInputProps('domain')}
             />
             
             {!editingNode && (

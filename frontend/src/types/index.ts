@@ -50,6 +50,7 @@ export interface Node {
   id: number;
   name: string;
   address: string;
+  domain?: string;
   api_port: number;
   api_protocol: 'grpc' | 'rest';
   usage_ratio: number;
