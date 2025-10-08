@@ -128,7 +128,7 @@ class XrayConfigBuilder:
         if inbound.type.upper() == "VLESS":
             settings["decryption"] = "none"
         elif inbound.type.upper() == "SHADOWSOCKS":
-            settings["method"] = "chacha20-poly1305"
+            settings["method"] = "chacha20-ietf-poly1305"
             settings["network"] = "tcp,udp"
 
         return settings
@@ -164,7 +164,7 @@ class XrayConfigBuilder:
             return {
                 "password": proxy.ss_password,
                 "email": user.email or user.username,
-                "method": proxy.ss_method or "chacha20-poly1305",
+                "method": proxy.ss_method or "chacha20-ietf-poly1305",
                 "level": 0
             }
 

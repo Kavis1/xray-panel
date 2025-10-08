@@ -2,12 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException, status, Header, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
+from app.api.v1.endpoints.auth import get_current_admin
+from app.core.config import settings
 from app.db.base import get_db
+from app.models.settings import Settings
 from app.models.user import User, UserInbound
 from app.models.inbound import Inbound
-from app.models.settings import Settings
 from app.models.node import Node
-from app.core.config import settings
+from app.models.admin import Admin
+from app.utils.node_compatibility import is_node_compatible_with_inbound, get_node_server_name
 import base64
 import json
 from urllib.parse import quote
@@ -27,8 +30,20 @@ def generate_subscription_links(user: User, inbounds: List[Inbound], nodes: List
                 if inbound.excluded_nodes and str(node.id) in inbound.excluded_nodes:
                     continue
                 
+                # Check node compatibility with inbound
+                is_compatible, reason = is_node_compatible_with_inbound(
+                    node.address,
+                    node.domain,
+                    inbound.type,
+                    inbound.security
+                )
+                
+                if not is_compatible:
+                    # Skip incompatible combinations (e.g., Trojan on IP-only node)
+                    continue
+                
                 # Use node's domain if set, otherwise use address
-                server = node.domain if node.domain else node.address
+                server = get_node_server_name(node.address, node.domain) or node.address
                 
                 # Match proxy type with inbound type
                 proxy_type_map = {
@@ -47,7 +62,7 @@ def generate_subscription_links(user: User, inbounds: List[Inbound], nodes: List
                 if proxy_type_map[proxy.type.upper()] != inbound.type.lower():
                     continue
                 
-                # Generate link based on type (case-insensitive)
+                # Generate link based on type (case-insensitively)
                 proxy_type_upper = proxy.type.upper()
                 if proxy_type_upper == "VLESS" and proxy.vless_uuid:
                     link = generate_vless_link(proxy, inbound, server, username_tag)
@@ -210,7 +225,9 @@ def generate_trojan_link(proxy, inbound, server: str, username_tag: str = "") ->
 def generate_ss_link(proxy, inbound, server: str, username_tag: str = "") -> str:
     """Generate Shadowsocks link"""
     # Format: ss://base64(method:password)@server:port#remark
-    method = proxy.ss_method or "aes-256-gcm"
+    # Use default method (same as in config_builder)
+    method = proxy.ss_method or "chacha20-ietf-poly1305"
+    
     credentials = f"{method}:{proxy.ss_password}"
     encoded = base64.b64encode(credentials.encode()).decode()
     remark = f"{inbound.remark or inbound.tag}{username_tag}"
@@ -333,7 +350,6 @@ def generate_singbox_outbound(proxy, inbound, server: str, username_tag: str = "
             "server": server,
             "server_port": inbound.port,
             "uuid": proxy.vless_uuid,
-            "packet_encoding": "xudp"
         }
         
         # Add flow ONLY for Reality (not for regular TLS or WebSocket)
@@ -411,7 +427,6 @@ def generate_singbox_outbound(proxy, inbound, server: str, username_tag: str = "
             "uuid": proxy.vmess_uuid,
             "security": "auto",
             "authenticated_length": True,
-            "packet_encoding": "xudp"
         }
         
         # Add TLS settings
@@ -466,26 +481,37 @@ def generate_singbox_outbound(proxy, inbound, server: str, username_tag: str = "
             "tag": tag,
             "server": server,
             "server_port": inbound.port,
-            "method": proxy.ss_method or "aes-256-gcm",
-            "password": proxy.ss_password
+            "method": proxy.ss_method or "chacha20-ietf-poly1305",
+            "password": proxy.ss_password,
+            "multiplex": {
+                "protocol": "h2mux",
+                "max_streams": 8
+            }
         }
     
     elif proxy.type == "HYSTERIA" and proxy.hysteria_password:
         # Hysteria v1 is deprecated, skip it
         return {}
     
-    elif proxy.type == "HYSTERIA2" and proxy.hysteria2_password:
+    elif proxy.type == "HYSTERIA2" and proxy.vmess_uuid:
+        # Hysteria2 uses vmess_uuid as password
+        tls_config = {
+            "enabled": True,
+            "server_name": server  # Use server name from node
+        }
+        
+        # Only set insecure if server is IP (no valid cert)
+        from app.utils.node_compatibility import is_domain
+        if not is_domain(server):
+            tls_config["insecure"] = True
+        
         return {
             "type": "hysteria2",
             "tag": tag,
             "server": server,
             "server_port": inbound.port,
-            "password": proxy.vmess_uuid or proxy.hysteria2_password,
-            "tls": {
-                "enabled": True,
-                "server_name": proxy.sni or server,
-                "insecure": True
-            }
+            "password": proxy.vmess_uuid,
+            "tls": tls_config
         }
     
     return {}
@@ -547,33 +573,64 @@ async def get_singbox_subscription(
     if not inbounds:
         return Response(content=json.dumps({"outbounds": []}), media_type="application/json")
     
+    # Get all nodes
+    result = await db.execute(select(Node))
+    nodes = result.scalars().all()
+    
+    if not nodes:
+        return Response(content=json.dumps({"outbounds": []}), media_type="application/json")
+    
     # Generate sing-box outbounds
     outbounds = []
-    server = settings.XRAY_SUBSCRIPTION_URL_PREFIX.split("//")[1].split("/")[0]
     idx = 0
     
     for proxy in user.proxies:
         for inbound in inbounds:
-            # Match proxy type with inbound type
-            proxy_type_map = {
-                "VLESS": "vless",
-                "VMESS": "vmess",
-                "TROJAN": "trojan",
-                "SHADOWSOCKS": "shadowsocks",
-                "HYSTERIA": "hysteria",
-                "HYSTERIA2": "hysteria2"
-            }
-            
-            if proxy.type.upper() not in proxy_type_map:
-                continue
+            for node in nodes:
+                # Skip if node is excluded from this inbound
+                if inbound.excluded_nodes and str(node.id) in inbound.excluded_nodes:
+                    continue
                 
-            if proxy_type_map[proxy.type.upper()] != inbound.type.lower():
-                continue
-            
-            outbound = generate_singbox_outbound(proxy, inbound, server, username_tag, idx)
-            if outbound:
-                outbounds.append(outbound)
-                idx += 1
+                # Check node compatibility with inbound
+                is_compatible, reason = is_node_compatible_with_inbound(
+                    node.address,
+                    node.domain,
+                    inbound.type,
+                    inbound.security
+                )
+                
+                if not is_compatible:
+                    continue
+                
+                # Use node's domain if set, otherwise use address
+                server = get_node_server_name(node.address, node.domain) or node.address
+                
+                # Match proxy type with inbound type
+                proxy_type_map = {
+                    "VLESS": "vless",
+                    "VMESS": "vmess",
+                    "TROJAN": "trojan",
+                    "SHADOWSOCKS": "shadowsocks",
+                    "HYSTERIA": "hysteria",
+                    "HYSTERIA2": "hysteria2"
+                }
+                
+                if proxy.type.upper() not in proxy_type_map:
+                    continue
+                    
+                if proxy_type_map[proxy.type.upper()] != inbound.type.lower():
+                    continue
+                
+                outbound = generate_singbox_outbound(proxy, inbound, server, username_tag, idx)
+                if outbound:
+                    outbounds.append(outbound)
+                    idx += 1
     
-    config = {"outbounds": outbounds}
+    config = {
+        "outbounds": outbounds,
+        "route": {
+            "auto_detect_interface": True,
+            "final": outbounds[0]["tag"] if outbounds else "direct"
+        }
+    }
     return Response(content=json.dumps(config, indent=2, ensure_ascii=False), media_type="application/json")

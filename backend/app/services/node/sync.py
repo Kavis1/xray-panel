@@ -1,6 +1,7 @@
 """Node synchronization service"""
+import json
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -12,8 +13,66 @@ from app.services.node.grpc_client import NodeGRPCClient
 from app.services.node.rest_client import NodeRestClient
 from app.services.xray.config_builder import XrayConfigBuilder
 from app.db.base import async_session_maker
+from app.utils.node_compatibility import is_node_compatible_with_inbound
 
 logger = logging.getLogger(__name__)
+
+
+def remove_tls_from_config(config_json: str) -> str:
+    """
+    Remove TLS-dependent inbounds from config for nodes.
+    Nodes don't have certificates, so only non-TLS protocols work.
+    
+    KEEP on nodes:
+    - VMess (WebSocket/TCP without TLS)
+    - VLESS (without TLS)
+    - Shadowsocks (plain)
+    - Hysteria/Hysteria2 (self-signed cert)
+    
+    REMOVE from nodes:
+    - Trojan (requires TLS certificate)
+    - Any protocol with TLS/Reality security
+    """
+    config = json.loads(config_json)
+    
+    filtered_inbounds = []
+    
+    for inbound in config.get("inbounds", []):
+        # Always keep API inbound
+        if inbound.get("tag") == "api":
+            filtered_inbounds.append(inbound)
+            continue
+        
+        protocol = inbound.get("protocol", "")
+        stream_settings = inbound.get("streamSettings", {})
+        security = stream_settings.get("security", "none")
+        
+        # Skip Trojan - it ALWAYS requires TLS
+        if protocol == "trojan":
+            logger.info(f"Skipping Trojan inbound {inbound.get('tag')} on node - requires TLS certificate")
+            continue
+        
+        # Skip any inbound with TLS/Reality (except Hysteria which uses self-signed)
+        if security in ["tls", "reality"] and protocol not in ["hysteria", "hysteria2"]:
+            logger.info(f"Skipping {protocol} inbound {inbound.get('tag')} on node - has {security}")
+            continue
+        
+        # Keep only Xray-native protocols (Hysteria is NOT part of Xray)
+        if protocol in ["vmess", "vless", "shadowsocks"]:
+            # Remove TLS settings
+            if "streamSettings" in inbound:
+                inbound["streamSettings"]["security"] = "none"
+                inbound["streamSettings"].pop("tlsSettings", None)
+                inbound["streamSettings"].pop("realitySettings", None)
+            
+            filtered_inbounds.append(inbound)
+            logger.info(f"Keeping {protocol} inbound {inbound.get('tag')} for node")
+        elif protocol in ["hysteria", "hysteria2"]:
+            logger.info(f"Skipping {protocol} inbound {inbound.get('tag')} - not supported by Xray core")
+    
+    config["inbounds"] = filtered_inbounds
+    
+    return json.dumps(config, indent=2)
 
 
 async def sync_all_nodes_background() -> None:
@@ -106,9 +165,12 @@ async def sync_all_nodes(db: AsyncSession, background: bool = False) -> dict:
     
     for node in nodes:
         try:
+            # Remove TLS from config for nodes (nodes don't have certificates)
+            node_config = remove_tls_from_config(config_json)
+            
             # Use REST client for better reliability
             client = NodeRestClient(node)
-            result = await client.restart_xray(config_json, users)
+            result = await client.restart_xray(node_config, users)
             
             # Update node status
             node.xray_running = result["running"]
@@ -212,9 +274,12 @@ async def sync_single_node(db: AsyncSession, node_id: int) -> dict:
     
     config_json = builder.build()
     
+    # Remove TLS from config for nodes (nodes don't have certificates)
+    node_config = remove_tls_from_config(config_json)
+    
     # Sync to node with restart using REST API
     client = NodeRestClient(node)
-    result = await client.restart_xray(config_json, users)
+    result = await client.restart_xray(node_config, users)
     
     # Update node status
     node.xray_running = result["running"]

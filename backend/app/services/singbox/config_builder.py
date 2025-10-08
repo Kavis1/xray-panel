@@ -26,34 +26,39 @@ class SingBoxConfigBuilder:
     def add_hysteria_inbound(
         self,
         inbound: Any,
-        users: List[Dict[str, Any]]
+        users: List[Any]  # List of User objects with proxies
     ) -> None:
         """Add Hysteria inbound configuration"""
         hysteria_users = []
         
-        for user_data in users:
+        for user in users:
             # Find Hysteria proxy for this user
-            for proxy in user_data.get("proxies", []):
-                if proxy.get("type") == "HYSTERIA":
+            for proxy in user.proxies:
+                if proxy.type.upper() == "HYSTERIA" and proxy.vmess_uuid:
+                    # Hysteria uses auth_str (not base64)
                     hysteria_users.append({
-                        "name": user_data.get("email", ""),
-                        "auth": proxy.get("password", "")
+                        "name": user.username,
+                        "auth_str": proxy.vmess_uuid
                     })
                     break
+        
+        # TLS certificate paths
+        tls_config = {
+            "enabled": True,
+            "server_name": "jdsshrerwwte.dmevent.de",
+            "certificate_path": "/etc/letsencrypt/live/jdsshrerwwte.dmevent.de/fullchain.pem",
+            "key_path": "/etc/letsencrypt/live/jdsshrerwwte.dmevent.de/privkey.pem"
+        }
         
         hysteria_inbound = {
             "type": "hysteria",
             "tag": inbound.tag,
-            "listen": inbound.listen,
+            "listen": inbound.listen or "0.0.0.0",
             "listen_port": inbound.port,
             "up_mbps": 100,
             "down_mbps": 100,
             "users": hysteria_users,
-            "tls": {
-                "enabled": True,
-                "server_name": "example.com",
-                "insecure": True
-            }
+            "tls": tls_config
         }
         
         self.config["inbounds"].append(hysteria_inbound)
@@ -61,35 +66,43 @@ class SingBoxConfigBuilder:
     def add_hysteria2_inbound(
         self,
         inbound: Any,
-        users: List[Dict[str, Any]]
+        users: List[Any],  # List of User objects with proxies
+        node_domain: str = None  # Node's domain for TLS cert
     ) -> None:
         """Add Hysteria2 inbound configuration"""
         hysteria2_users = []
         
-        for user_data in users:
+        for user in users:
             # Find Hysteria2 proxy for this user
-            for proxy in user_data.get("proxies", []):
-                if proxy.get("type") == "HYSTERIA2":
+            for proxy in user.proxies:
+                if proxy.type.upper() == "HYSTERIA2" and proxy.vmess_uuid:
                     hysteria2_users.append({
-                        "name": user_data.get("email", ""),
-                        "password": proxy.get("password", "")
+                        "name": user.username,
+                        "password": proxy.vmess_uuid  # Hysteria2 uses UUID as password
                     })
                     break
+        
+        # Use node's domain for certificate path, fallback to main domain
+        cert_domain = node_domain or "jdsshrerwwte.dmevent.de"
+        
+        # TLS certificate paths
+        tls_config = {
+            "enabled": True,
+            "server_name": cert_domain,
+            "certificate_path": f"/etc/letsencrypt/live/{cert_domain}/fullchain.pem",
+            "key_path": f"/etc/letsencrypt/live/{cert_domain}/privkey.pem",
+            "alpn": ["h3"]
+        }
         
         hysteria2_inbound = {
             "type": "hysteria2",
             "tag": inbound.tag,
-            "listen": inbound.listen,
+            "listen": inbound.listen or "0.0.0.0",
             "listen_port": inbound.port,
             "up_mbps": 100,
             "down_mbps": 100,
             "users": hysteria2_users,
-            "tls": {
-                "enabled": True,
-                "server_name": "example.com",
-                "insecure": True,
-                "alpn": ["h3"]
-            }
+            "tls": tls_config
         }
         
         self.config["inbounds"].append(hysteria2_inbound)

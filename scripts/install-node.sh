@@ -88,6 +88,69 @@ if [ ! -f .env ]; then
     echo "Please save this key - you'll need it to add this node to the panel"
 fi
 
+# Ask for domain and setup SSL
+echo ""
+echo "========================================="
+echo "  SSL Certificate Setup (Optional)"
+echo "========================================="
+echo ""
+read -p "Do you have a domain configured for this node? (y/n): " HAS_DOMAIN
+
+if [ "$HAS_DOMAIN" = "y" ] || [ "$HAS_DOMAIN" = "Y" ]; then
+    read -p "Enter your domain name (e.g., node1.example.com): " DOMAIN_NAME
+    
+    if [ -n "$DOMAIN_NAME" ]; then
+        echo "Setting up SSL certificate for $DOMAIN_NAME..."
+        
+        # Install certbot if not present
+        if ! command -v certbot &> /dev/null; then
+            echo "Installing certbot..."
+            apt-get update
+            apt-get install -y certbot
+        fi
+        
+        # Stop any service that might be using port 80
+        systemctl stop nginx 2>/dev/null || true
+        systemctl stop apache2 2>/dev/null || true
+        
+        # Get certificate using standalone mode
+        echo "Obtaining SSL certificate..."
+        certbot certonly --standalone \
+            --non-interactive \
+            --agree-tos \
+            --register-unsafely-without-email \
+            -d "$DOMAIN_NAME"
+        
+        if [ $? -eq 0 ]; then
+            echo "✓ SSL certificate obtained successfully!"
+            echo "  Certificate: /etc/letsencrypt/live/$DOMAIN_NAME/fullchain.pem"
+            echo "  Private Key: /etc/letsencrypt/live/$DOMAIN_NAME/privkey.pem"
+            
+            # Set proper permissions
+            chmod -R 755 /etc/letsencrypt/live/
+            chmod -R 755 /etc/letsencrypt/archive/
+            
+            # Save domain to env file
+            echo "NODE_DOMAIN=$DOMAIN_NAME" >> .env
+            
+            # Setup auto-renewal
+            echo "Setting up auto-renewal..."
+            (crontab -l 2>/dev/null; echo "0 3 * * * certbot renew --quiet --deploy-hook 'systemctl restart xray-panel-node'") | crontab -
+            
+            echo "✓ Auto-renewal configured (runs daily at 3 AM)"
+        else
+            echo "✗ Failed to obtain SSL certificate"
+            echo "  Please ensure:"
+            echo "  1. Domain $DOMAIN_NAME points to this server's IP"
+            echo "  2. Port 80 is open and accessible"
+            echo "  3. No firewall is blocking the connection"
+        fi
+    fi
+else
+    echo "Skipping SSL setup. Node will use IP address only."
+    echo "Note: Protocols requiring TLS (Trojan, Hysteria2, etc.) won't work without a domain."
+fi
+
 # Create systemd service
 cat > /etc/systemd/system/xray-panel-node.service << EOF
 [Unit]
