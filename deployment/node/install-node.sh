@@ -246,6 +246,36 @@ if [ -z "$NODE_NAME" ]; then
     NODE_NAME="Node-$(date +%s)"
 fi
 
+# Запрос домена для TLS протоколов
+echo ""
+echo -e "${YELLOW}=== Настройка домена (опционально) ===${NC}"
+echo ""
+echo -e "${CYAN}Если у вас есть домен для этой ноды, вы сможете использовать:${NC}"
+echo -e "  - Trojan"
+echo -e "  - Hysteria2"
+echo -e "  - VLESS Reality"
+echo -e "  - VMess с TLS"
+echo ""
+echo -e "${YELLOW}Без домена будут работать только:${NC}"
+echo -e "  - VMess (без TLS)"
+echo -e "  - Shadowsocks"
+echo ""
+read -p "Есть ли у вас домен для этой ноды? (y/n): " HAS_DOMAIN
+
+NODE_DOMAIN=""
+if [ "$HAS_DOMAIN" = "y" ] || [ "$HAS_DOMAIN" = "Y" ]; then
+    read -p "Введите домен (например: node1.example.com): " NODE_DOMAIN
+    
+    if [ -n "$NODE_DOMAIN" ]; then
+        echo -e "${GREEN}✓${NC} Домен: $NODE_DOMAIN"
+        echo -e "${YELLOW}ВАЖНО: Убедитесь что домен указывает на IP: $EXTERNAL_IP${NC}"
+    else
+        echo -e "${YELLOW}Домен не указан. Будет использован только IP.${NC}"
+    fi
+else
+    echo -e "${YELLOW}Домен не настроен. Будет использован только IP.${NC}"
+fi
+
 # Генерация API ключа
 API_KEY=$(openssl rand -hex 32)
 GRPC_PORT=50051
@@ -663,6 +693,52 @@ if command -v firewall-cmd &> /dev/null; then
 fi
 
 echo -e "${GREEN}✓${NC} Порты открыты: $GRPC_PORT, 443, 80"
+
+# Получение SSL сертификата для домена (если указан)
+if [ -n "$NODE_DOMAIN" ]; then
+    echo ""
+    echo -e "${YELLOW}[6.5/6]${NC} Получение SSL сертификата для домена..."
+    
+    # Установка certbot если нет
+    if ! command -v certbot &> /dev/null; then
+        echo -e "${BLUE}Установка certbot...${NC}"
+        if [[ "$OS" == "ubuntu" ]] || [[ "$OS" == "debian" ]]; then
+            apt-get install -y certbot > /dev/null 2>&1
+        elif [[ "$OS" == "centos" ]] || [[ "$OS" == "rhel" ]]; then
+            yum install -y certbot > /dev/null 2>&1
+        fi
+    fi
+    
+    # Получение сертификата
+    echo -e "${BLUE}Получение сертификата для $NODE_DOMAIN...${NC}"
+    certbot certonly --standalone \
+        --non-interactive \
+        --agree-tos \
+        --register-unsafely-without-email \
+        -d "$NODE_DOMAIN" > /dev/null 2>&1
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✓${NC} SSL сертификат получен для $NODE_DOMAIN"
+        
+        # Установка прав
+        chmod -R 755 /etc/letsencrypt/live/ 2>/dev/null
+        chmod -R 755 /etc/letsencrypt/archive/ 2>/dev/null
+        
+        # Сохранение домена в .env
+        echo "NODE_DOMAIN=$NODE_DOMAIN" >> /opt/xray-panel-node/.env
+        
+        # Настройка auto-renewal
+        (crontab -l 2>/dev/null; echo "0 3 * * * certbot renew --quiet --deploy-hook 'systemctl restart xray-node singbox-node'") | crontab -
+        echo -e "${GREEN}✓${NC} Auto-renewal настроен (ежедневно в 3:00)"
+    else
+        echo -e "${YELLOW}⚠${NC} Не удалось получить SSL сертификат"
+        echo -e "${YELLOW}  Убедитесь что:${NC}"
+        echo -e "${YELLOW}  1. Домен $NODE_DOMAIN указывает на $EXTERNAL_IP${NC}"
+        echo -e "${YELLOW}  2. Порт 80 открыт и доступен${NC}"
+        echo -e "${YELLOW}  3. Нет firewall блокирующего соединение${NC}"
+        echo -e "${YELLOW}  Протоколы с TLS не будут работать без сертификата${NC}"
+    fi
+fi
 
 # Reload systemd
 systemctl daemon-reload
