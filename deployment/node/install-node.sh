@@ -486,10 +486,35 @@ git clone -q "$REPO_URL" temp_clone || {
 cp -r temp_clone/node/* .
 rm -rf temp_clone
 
+# Компиляция proto файлов
+echo "Компиляция proto файлов..."
+export PATH=$PATH:/root/go/bin:/usr/local/go/bin
+cd /opt/xray-panel-node
+
+protoc --go_out=. --go_opt=paths=source_relative \
+    --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+    proto/node.proto
+
+if [ $? -ne 0 ]; then
+    echo -e "${RED}Ошибка компиляции proto файлов${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✓${NC} Proto файлы скомпилированы"
+
 # Сборка Node Service
 echo "Сборка Node Service..."
+/usr/local/go/bin/go mod tidy > /dev/null 2>&1
 /usr/local/go/bin/go mod download > /dev/null 2>&1
 /usr/local/go/bin/go build -o xray-panel-node cmd/main.go
+
+if [ $? -ne 0 ]; then
+    echo -e "${RED}Ошибка сборки Node Service${NC}"
+    echo -e "${YELLOW}Проверьте логи выше для деталей${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✓${NC} Node Service собран"
 
 # Создание .env файла
 cat > .env << EOF
