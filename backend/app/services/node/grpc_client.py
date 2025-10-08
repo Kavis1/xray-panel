@@ -321,21 +321,22 @@ class NodeGRPCClient:
             stub = node_pb2_grpc.NodeServiceStub(channel)
             
             try:
-                commands = [
-                    f"ufw allow {port}/{protocol} 2>/dev/null || true",
-                    f"iptables -I INPUT -p {protocol} --dport {port} -j ACCEPT 2>/dev/null || true"
-                ]
+                # Try UFW first
+                ufw_cmd = f"/usr/sbin/ufw allow {port}/{protocol} 2>/dev/null || true"
+                request = node_pb2.CommandRequest(command=ufw_cmd)
+                response = await stub.ExecuteCommand(request)
                 
-                for cmd in commands:
-                    request = node_pb2.CommandRequest(command=cmd)
-                    try:
-                        response = await stub.ExecuteCommand(request)
-                        if response.exit_code == 0:
-                            return {"success": True, "message": f"Port {port}/{protocol} opened", "method": "command"}
-                    except:
-                        continue
+                # Always add iptables rule (works even if UFW is active)
+                iptables_cmd = f"/usr/sbin/iptables -C INPUT -p {protocol} --dport {port} -j ACCEPT 2>/dev/null || /usr/sbin/iptables -I INPUT -p {protocol} --dport {port} -j ACCEPT"
+                request = node_pb2.CommandRequest(command=iptables_cmd)
+                response = await stub.ExecuteCommand(request)
                 
-                return {"success": True, "message": f"Port {port} open attempted"}
+                # Save iptables rules
+                save_cmd = "which netfilter-persistent >/dev/null 2>&1 && netfilter-persistent save 2>/dev/null || iptables-save > /etc/iptables/rules.v4 2>/dev/null || true"
+                request = node_pb2.CommandRequest(command=save_cmd)
+                await stub.ExecuteCommand(request)
+                
+                return {"success": True, "message": f"Port {port}/{protocol} opened"}
             except Exception as e:
                 return {"success": False, "message": str(e)}
     
@@ -345,21 +346,22 @@ class NodeGRPCClient:
             stub = node_pb2_grpc.NodeServiceStub(channel)
             
             try:
-                commands = [
-                    f"ufw delete allow {port}/{protocol} 2>/dev/null || true",
-                    f"iptables -D INPUT -p {protocol} --dport {port} -j ACCEPT 2>/dev/null || true"
-                ]
+                # Try UFW first
+                ufw_cmd = f"/usr/sbin/ufw delete allow {port}/{protocol} 2>/dev/null || true"
+                request = node_pb2.CommandRequest(command=ufw_cmd)
+                await stub.ExecuteCommand(request)
                 
-                for cmd in commands:
-                    request = node_pb2.CommandRequest(command=cmd)
-                    try:
-                        response = await stub.ExecuteCommand(request)
-                        if response.exit_code == 0:
-                            return {"success": True, "message": f"Port {port}/{protocol} closed", "method": "command"}
-                    except:
-                        continue
+                # Remove iptables rule
+                iptables_cmd = f"/usr/sbin/iptables -D INPUT -p {protocol} --dport {port} -j ACCEPT 2>/dev/null || true"
+                request = node_pb2.CommandRequest(command=iptables_cmd)
+                await stub.ExecuteCommand(request)
                 
-                return {"success": True, "message": f"Port {port} close attempted"}
+                # Save iptables rules
+                save_cmd = "which netfilter-persistent >/dev/null 2>&1 && netfilter-persistent save 2>/dev/null || iptables-save > /etc/iptables/rules.v4 2>/dev/null || true"
+                request = node_pb2.CommandRequest(command=save_cmd)
+                await stub.ExecuteCommand(request)
+                
+                return {"success": True, "message": f"Port {port}/{protocol} closed"}
             except Exception as e:
                 return {"success": False, "message": str(e)}
 

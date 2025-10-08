@@ -3,9 +3,9 @@
 set -e
 
 # VERSION INFO - Updated automatically
-SCRIPT_VERSION="v2.1.1"
-SCRIPT_DATE="2025-10-08 02:00 UTC"
-LAST_CHANGE="Added port 8080 for REST API server"
+SCRIPT_VERSION="v2.2.0"
+SCRIPT_DATE="2025-10-08 13:57 UTC"
+LAST_CHANGE="REST API now writes config and restarts systemd directly"
 
 # Цвета
 RED='\033[0;31m'

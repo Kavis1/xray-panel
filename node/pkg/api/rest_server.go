@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/exec"
 	"sync"
 	"time"
 
@@ -89,33 +91,49 @@ func (s *RestServer) handleStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("[REST] Start request received")
+	log.Printf("[REST] Start request received, config length: %d", len(req.Config))
 
-	// Check if already running
+	// Check if already running - if so, restart instead
 	if s.xrayManager.IsRunning() {
-		w.WriteHeader(http.StatusConflict)
-		json.NewEncoder(w).Encode(Response{
-			Detail: "Xray is started already",
-		})
+		log.Printf("[REST] Xray already running, restarting instead")
+		s.handleRestart(w, r)
 		return
 	}
 
-	backend := types.Backend{
-		Type:   "xray",
-		Config: req.Config,
+	// Write config to file
+	configFile := "/opt/xray-panel-node/xray_config.json"
+	if err := os.WriteFile(configFile, []byte(req.Config), 0644); err != nil {
+		log.Printf("[REST] Failed to write config: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to write config: %v", err), http.StatusInternalServerError)
+		return
 	}
+	
+	log.Printf("[REST] Config written to %s", configFile)
+	
+	// Sync to disk
+	exec.Command("/usr/bin/sync").Run()
+	time.Sleep(200 * time.Millisecond)
 
-	if err := s.xrayManager.Start(backend); err != nil {
-		log.Printf("[REST] Start failed: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	// Start xray-node service via systemd
+	cmd := exec.Command("/usr/bin/systemctl", "start", "xray-node")
+	if err := cmd.Run(); err != nil {
+		log.Printf("[REST] Failed to start xray-node: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to start xray: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("[REST] Xray started successfully")
+	log.Printf("[REST] xray-node service started")
+	
+	// Wait for xray to start
+	time.Sleep(2 * time.Second)
+
+	// Get version
+	version, _ := s.xrayManager.GetVersion()
 
 	json.NewEncoder(w).Encode(Response{
-		Started: true,
-		Message: "Xray started",
+		Started:     true,
+		CoreVersion: version,
+		Message:     "Xray started successfully",
 	})
 }
 
@@ -143,24 +161,42 @@ func (s *RestServer) handleRestart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("[REST] Restart request received")
+	log.Printf("[REST] Restart request received, config length: %d", len(req.Config))
 
-	backend := types.Backend{
-		Type:   "xray",
-		Config: req.Config,
+	// Write config to file
+	configFile := "/opt/xray-panel-node/xray_config.json"
+	if err := os.WriteFile(configFile, []byte(req.Config), 0644); err != nil {
+		log.Printf("[REST] Failed to write config: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to write config: %v", err), http.StatusInternalServerError)
+		return
 	}
+	
+	log.Printf("[REST] Config written to %s", configFile)
+	
+	// Sync to disk
+	exec.Command("/usr/bin/sync").Run()
+	time.Sleep(200 * time.Millisecond)
 
-	if err := s.xrayManager.Restart(backend); err != nil {
-		log.Printf("[REST] Restart failed: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	// Restart xray-node service via systemd
+	cmd := exec.Command("/usr/bin/systemctl", "restart", "xray-node")
+	if err := cmd.Run(); err != nil {
+		log.Printf("[REST] Failed to restart xray-node: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to restart xray: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("[REST] Xray restarted successfully")
+	log.Printf("[REST] xray-node service restarted")
+	
+	// Wait for xray to start
+	time.Sleep(2 * time.Second)
+
+	// Get version
+	version, _ := s.xrayManager.GetVersion()
 
 	json.NewEncoder(w).Encode(Response{
-		Started: true,
-		Message: "Xray restarted",
+		Started:     true,
+		CoreVersion: version,
+		Message:     "Xray restarted successfully",
 	})
 }
 
