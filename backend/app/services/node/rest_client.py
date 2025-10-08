@@ -122,3 +122,68 @@ class NodeRestClient:
                 "xray_version": data.get("core_version", ""),
                 "session_id": self.session_id
             }
+    
+    async def get_user_stats(self, email: str, reset: bool = False) -> Dict[str, Any]:
+        """Get user traffic statistics"""
+        if not self.session_id:
+            await self.connect()
+        
+        async with httpx.AsyncClient(timeout=self.timeout, verify=False) as client:
+            response = await client.get(
+                f"{self.base_url}/stats/user/{email}",
+                params={"reset": str(reset).lower()}
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            return {
+                "name": email,
+                "bytes_up": data.get("up", 0),
+                "bytes_down": data.get("down", 0),
+                "total": data.get("up", 0) + data.get("down", 0)
+            }
+    
+    async def execute_command(self, command: str) -> Dict[str, Any]:
+        """Execute shell command on node"""
+        if not self.session_id:
+            await self.connect()
+        
+        async with httpx.AsyncClient(timeout=self.timeout, verify=False) as client:
+            response = await client.post(
+                f"{self.base_url}/execute",
+                json={
+                    "session_id": self.session_id,
+                    "command": command
+                }
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            return {
+                "success": data.get("exit_code", -1) == 0,
+                "exit_code": data.get("exit_code", -1),
+                "stdout": data.get("stdout", ""),
+                "stderr": data.get("stderr", "")
+            }
+    
+    async def sync_singbox_config(self, config: str) -> Dict[str, Any]:
+        """Sync Sing-box configuration to node"""
+        if not self.session_id:
+            await self.connect()
+        
+        async with httpx.AsyncClient(timeout=self.timeout, verify=False) as client:
+            response = await client.post(
+                f"{self.base_url}/singbox/config",
+                json={
+                    "session_id": self.session_id,
+                    "config": config
+                }
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            logger.info(f"Sing-box config synced to node {self.node.name}")
+            return {
+                "success": data.get("success", False),
+                "message": data.get("message", "")
+            }

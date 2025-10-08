@@ -12,26 +12,24 @@ from app.models.inbound import Inbound
 from app.services.node.grpc_client import NodeGRPCClient
 from app.services.node.rest_client import NodeRestClient
 from app.services.xray.config_builder import XrayConfigBuilder
+from app.services.singbox.config_builder import SingBoxConfigBuilder
 from app.db.base import async_session_maker
 from app.utils.node_compatibility import is_node_compatible_with_inbound
 
 logger = logging.getLogger(__name__)
 
 
-def remove_tls_from_config(config_json: str) -> str:
+def remove_tls_from_config(config_json: str, node_domain: str = None) -> str:
     """
-    Remove TLS-dependent inbounds from config for nodes.
-    Nodes don't have certificates, so only non-TLS protocols work.
+    Filter inbounds for nodes based on TLS certificate availability.
     
-    KEEP on nodes:
-    - VMess (WebSocket/TCP without TLS)
-    - VLESS (without TLS)
-    - Shadowsocks (plain)
-    - Hysteria/Hysteria2 (self-signed cert)
+    If node has domain (and certificates):
+    - KEEP all protocols including TLS (Trojan, VLESS Reality, etc.)
+    - Update certificate paths to use node's domain
     
-    REMOVE from nodes:
-    - Trojan (requires TLS certificate)
-    - Any protocol with TLS/Reality security
+    If node has NO domain:
+    - KEEP only non-TLS protocols (VMess, Shadowsocks, VLESS without TLS)
+    - REMOVE TLS-dependent protocols (Trojan, VLESS Reality, etc.)
     """
     config = json.loads(config_json)
     
@@ -47,28 +45,45 @@ def remove_tls_from_config(config_json: str) -> str:
         stream_settings = inbound.get("streamSettings", {})
         security = stream_settings.get("security", "none")
         
-        # Skip Trojan - it ALWAYS requires TLS
-        if protocol == "trojan":
-            logger.info(f"Skipping Trojan inbound {inbound.get('tag')} on node - requires TLS certificate")
+        # Skip Hysteria - handled by sing-box, not Xray
+        if protocol in ["hysteria", "hysteria2"]:
+            logger.info(f"Skipping {protocol} inbound {inbound.get('tag')} - handled by sing-box")
             continue
         
-        # Skip any inbound with TLS/Reality (except Hysteria which uses self-signed)
-        if security in ["tls", "reality"] and protocol not in ["hysteria", "hysteria2"]:
-            logger.info(f"Skipping {protocol} inbound {inbound.get('tag')} on node - has {security}")
-            continue
-        
-        # Keep only Xray-native protocols (Hysteria is NOT part of Xray)
-        if protocol in ["vmess", "vless", "shadowsocks"]:
-            # Remove TLS settings
-            if "streamSettings" in inbound:
-                inbound["streamSettings"]["security"] = "none"
-                inbound["streamSettings"].pop("tlsSettings", None)
-                inbound["streamSettings"].pop("realitySettings", None)
+        # If node has domain - keep TLS protocols and update cert paths
+        if node_domain:
+            # Keep all protocols including TLS
+            if protocol in ["vmess", "vless", "shadowsocks", "trojan"]:
+                # Update TLS certificate paths to use node's domain
+                if "streamSettings" in inbound and "tlsSettings" in inbound["streamSettings"]:
+                    tls_settings = inbound["streamSettings"]["tlsSettings"]
+                    if "certificates" in tls_settings:
+                        for cert in tls_settings["certificates"]:
+                            cert["certificateFile"] = f"/etc/letsencrypt/live/{node_domain}/fullchain.pem"
+                            cert["keyFile"] = f"/etc/letsencrypt/live/{node_domain}/privkey.pem"
+                
+                filtered_inbounds.append(inbound)
+                logger.info(f"Keeping {protocol} inbound {inbound.get('tag')} for node with domain {node_domain}")
+        else:
+            # Node has NO domain - remove TLS protocols
+            if protocol == "trojan":
+                logger.info(f"Skipping Trojan inbound {inbound.get('tag')} - node has no domain/certificates")
+                continue
             
-            filtered_inbounds.append(inbound)
-            logger.info(f"Keeping {protocol} inbound {inbound.get('tag')} for node")
-        elif protocol in ["hysteria", "hysteria2"]:
-            logger.info(f"Skipping {protocol} inbound {inbound.get('tag')} - not supported by Xray core")
+            if security in ["tls", "reality"]:
+                logger.info(f"Skipping {protocol} inbound {inbound.get('tag')} - has {security} but node has no domain")
+                continue
+            
+            # Keep non-TLS protocols
+            if protocol in ["vmess", "vless", "shadowsocks"]:
+                # Remove TLS settings
+                if "streamSettings" in inbound:
+                    inbound["streamSettings"]["security"] = "none"
+                    inbound["streamSettings"].pop("tlsSettings", None)
+                    inbound["streamSettings"].pop("realitySettings", None)
+                
+                filtered_inbounds.append(inbound)
+                logger.info(f"Keeping {protocol} inbound {inbound.get('tag')} for node without domain")
     
     config["inbounds"] = filtered_inbounds
     
@@ -165,8 +180,8 @@ async def sync_all_nodes(db: AsyncSession, background: bool = False) -> dict:
     
     for node in nodes:
         try:
-            # Remove TLS from config for nodes (nodes don't have certificates)
-            node_config = remove_tls_from_config(config_json)
+            # Filter config based on node's domain/certificates
+            node_config = remove_tls_from_config(config_json, node.domain)
             
             # Use REST client for better reliability
             client = NodeRestClient(node)
@@ -274,8 +289,8 @@ async def sync_single_node(db: AsyncSession, node_id: int) -> dict:
     
     config_json = builder.build()
     
-    # Remove TLS from config for nodes (nodes don't have certificates)
-    node_config = remove_tls_from_config(config_json)
+    # Filter config based on node's domain/certificates
+    node_config = remove_tls_from_config(config_json, node.domain)
     
     # Sync to node with restart using REST API
     client = NodeRestClient(node)
@@ -286,6 +301,14 @@ async def sync_single_node(db: AsyncSession, node_id: int) -> dict:
     node.xray_version = result["xray_version"]
     await db.commit()
     
+    # Sync Sing-box configuration for Hysteria2 (if node has domain)
+    if node.domain:
+        try:
+            await sync_singbox_to_node(db, node, users)
+            logger.info(f"Sing-box configuration synced to node {node.name}")
+        except Exception as e:
+            logger.error(f"Failed to sync Sing-box to node {node.name}: {e}")
+    
     return {
         "success": True,
         "xray_running": result["running"],
@@ -293,3 +316,54 @@ async def sync_single_node(db: AsyncSession, node_id: int) -> dict:
         "inbounds_count": len(inbounds),
         "users_count": len(users)
     }
+
+
+async def sync_singbox_to_node(db: AsyncSession, node: Node, users: List[User]) -> None:
+    """
+    Synchronize Sing-box configuration (Hysteria2) to node
+    """
+    # Get Hysteria2 inbounds
+    result = await db.execute(
+        select(Inbound).where(
+            Inbound.is_enabled == True,
+            Inbound.type == 'hysteria2'
+        )
+    )
+    hysteria_inbounds = result.scalars().all()
+    
+    if not hysteria_inbounds:
+        logger.info(f"No Hysteria2 inbounds to sync to node {node.name}")
+        return
+    
+    # Build Sing-box configuration
+    builder = SingBoxConfigBuilder()
+    
+    for inbound in hysteria_inbounds:
+        # Get users for this inbound
+        inbound_users = [
+            user for user in users
+            if any(ui.inbound_tag == inbound.tag for ui in user.inbounds)
+        ]
+        
+        if inbound_users:
+            builder.add_hysteria2_inbound(inbound, inbound_users, node.domain)
+    
+    config_json = builder.build()
+    
+    # Write config to node using gRPC ExecuteCommand (more reliable for file operations)
+    try:
+        import base64
+        config_b64 = base64.b64encode(config_json.encode()).decode()
+        command = f"echo '{config_b64}' | base64 -d > /opt/xray-panel-node/singbox_config.json && systemctl restart singbox-node"
+        
+        client = NodeGRPCClient(node)
+        result = await client.execute_command(command)
+        
+        if result["success"]:
+            logger.info(f"Sing-box config synced to node {node.name}, size: {len(config_json)} bytes")
+        else:
+            logger.error(f"Failed to sync Sing-box to node {node.name}: {result['stderr']}")
+            raise Exception(f"Command failed: {result['stderr']}")
+    except Exception as e:
+        logger.error(f"Failed to sync Sing-box config to node {node.name}: {e}")
+        raise

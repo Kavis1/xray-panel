@@ -64,13 +64,13 @@ async def collect_node_stats_async():
                     else:
                         xray_version = None
                 else:
-                    # For remote node: use gRPC to get status
-                    from app.services.node.grpc_client import NodeGRPCClient
+                    # For remote node: use REST API to get status
+                    from app.services.node.rest_client import NodeRestClient
                     
                     try:
-                        client = NodeGRPCClient(node)
+                        client = NodeRestClient(node)
                         
-                        # Get node info via gRPC
+                        # Get node info via REST
                         node_info = await client.get_info()
                         
                         xray_running = node_info.get('running', False)
@@ -80,8 +80,8 @@ async def collect_node_stats_async():
                         node.core_type = node_info.get('core_type')
                         node.uptime_seconds = node_info.get('uptime')
                         
-                    except Exception as grpc_error:
-                        logger.warning(f"Failed to connect to remote node {node.name} via gRPC: {grpc_error}")
+                    except Exception as rest_error:
+                        logger.warning(f"Failed to connect to remote node {node.name} via REST: {rest_error}")
                         xray_running = False
                         xray_version = None
                         node.is_connected = False
@@ -103,10 +103,12 @@ async def collect_node_stats_async():
 
 
 async def collect_user_traffic_stats_async():
-    """Collect traffic statistics using Xray CLI + sing-box stats"""
+    """Collect traffic statistics from main server and all nodes"""
     import subprocess
     import json as json_lib
     import requests
+    from app.models.node import Node
+    from app.services.node.grpc_client import NodeGRPCClient
     
     async with async_session_maker() as session:
         # Get active users
@@ -115,11 +117,17 @@ async def collect_user_traffic_stats_async():
         )
         users = result.scalars().all()
         
+        # Get all enabled nodes
+        result = await session.execute(
+            select(Node).where(Node.is_enabled == True)
+        )
+        nodes = result.scalars().all()
+        
         for user in users:
             email = user.email or user.username
             total_bytes = 0
             
-            # 1. Collect from Xray
+            # 1. Collect from main server Xray
             try:
                 result = subprocess.run(
                     ['xray', 'api', 'statsquery',
@@ -179,9 +187,24 @@ async def collect_user_traffic_stats_async():
             except Exception as e:
                 logger.debug(f"sing-box stats error: {e}")
             
+            # 3. Collect from all nodes using REST API
+            for node in nodes:
+                try:
+                    from app.services.node.rest_client import NodeRestClient
+                    client = NodeRestClient(node)
+                    node_stats = await client.get_user_stats(email, reset=False)
+                    
+                    node_total = node_stats.get('total', 0)
+                    if node_total > 0:
+                        total_bytes += node_total
+                        logger.info(f"  Node {node.name} {user.username}: {node_total:,} bytes")
+                except Exception as e:
+                    logger.debug(f"Node {node.name} stats error for {user.username}: {e}")
+            
             # Update total traffic
             if total_bytes > 0:
                 user.traffic_used_bytes = total_bytes
+                logger.info(f"✓ Total traffic for {user.username}: {total_bytes:,} bytes ({total_bytes/1024/1024:.2f} MB)")
                 logger.info(f"✅ Updated {user.username}: {total_bytes:,} bytes ({total_bytes/1024/1024:.2f} MB)")
         
         await session.commit()

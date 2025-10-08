@@ -356,12 +356,33 @@ class NodeGRPCClient:
                 request = node_pb2.CommandRequest(command=iptables_cmd)
                 await stub.ExecuteCommand(request)
                 
-                # Save iptables rules
-                save_cmd = "which netfilter-persistent >/dev/null 2>&1 && netfilter-persistent save 2>/dev/null || iptables-save > /etc/iptables/rules.v4 2>/dev/null || true"
-                request = node_pb2.CommandRequest(command=save_cmd)
-                await stub.ExecuteCommand(request)
-                
-                return {"success": True, "message": f"Port {port}/{protocol} closed"}
             except Exception as e:
-                return {"success": False, "message": str(e)}
-
+                return {
+                    "success": False,
+                    "exit_code": -1,
+                    "stdout": "",
+                    "stderr": str(e)
+                }
+    
+    async def execute_command(self, command: str) -> Dict[str, Any]:
+        """Execute shell command on node"""
+        async with self._get_channel() as channel:
+            stub = node_pb2_grpc.NodeServiceStub(channel)
+            
+            try:
+                request = node_pb2.CommandRequest(command=command)
+                response = await stub.ExecuteCommand(request)
+                
+                return {
+                    "success": response.exit_code == 0,
+                    "exit_code": response.exit_code,
+                    "stdout": response.stdout,
+                    "stderr": response.stderr
+                }
+            except Exception as e:
+                return {
+                    "success": False,
+                    "exit_code": -1,
+                    "stdout": "",
+                    "stderr": str(e)
+                }
