@@ -3,9 +3,9 @@
 set -e
 
 # VERSION INFO - Updated automatically
-SCRIPT_VERSION="v2.2.0"
-SCRIPT_DATE="2025-10-08 13:57 UTC"
-LAST_CHANGE="REST API now writes config and restarts systemd directly"
+SCRIPT_VERSION="v2.2.1"
+SCRIPT_DATE="2025-10-08 13:58 UTC"
+LAST_CHANGE="Fixed unused import in rest_server.go"
 
 # Цвета
 RED='\033[0;31m'

@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"xray-panel-node/pkg/types"
 	"xray-panel-node/pkg/xray"
 )
 
